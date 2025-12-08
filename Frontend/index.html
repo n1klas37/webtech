@@ -3,15 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LifeTracker Ultimate - Mit Grammanpassung</title>
+    <title>LifeTracker Ultimate - Mit Grammanpassung & Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Verhindert das Aufblitzen des Anmeldebildschirms, wenn der Benutzer bereits angemeldet ist */
+        .initial-hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal text-gray-800">
 
-    <div class="flex h-screen overflow-hidden">
+    <div id="login-screen" class="min-h-screen flex items-center justify-center w-full bg-slate-900 absolute top-0 left-0 z-50">
+        <div class="max-w-md w-full mx-4 bg-white p-8 rounded-xl shadow-2xl space-y-8">
+            <div class="text-center">
+                <i class="fa-solid fa-infinity text-blue-600 text-5xl"></i>
+                <h2 class="mt-4 text-3xl font-extrabold text-gray-900">
+                    Willkommen bei LifeTracker
+                </h2>
+                <p class="mt-2 text-sm text-gray-600">
+                    Bitte melde dich an, um fortzufahren.
+                </p>
+                <div id="login-error" class="text-red-500 text-sm mt-2 hidden"></div>
+            </div>
+            
+            <form class="mt-8 space-y-6" onsubmit="event.preventDefault(); handleLogin();">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="username" class="sr-only">Benutzername</label>
+                        <input id="username" name="username" type="text" required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" placeholder="Benutzername (test)">
+                    </div>
+                    <div>
+                        <label for="password" class="sr-only">Passwort</label>
+                        <input id="password" name="password" type="password" required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm" placeholder="Passwort (1234)">
+                    </div>
+                </div>
 
+                <div>
+                    <button type="submit" id="login-button" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                        <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                            <i class="fa-solid fa-lock text-blue-500 group-hover:text-blue-400"></i>
+                        </span>
+                        Anmelden
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="main-app" class="flex h-screen overflow-hidden initial-hidden">
         <aside class="w-64 bg-slate-900 text-white hidden md:flex flex-col flex-shrink-0 transition-all duration-300 shadow-xl">
             <div class="p-6 text-2xl font-bold text-center border-b border-slate-800 bg-slate-900">
                 <i class="fa-solid fa-infinity text-blue-500"></i> LifeTracker
@@ -33,14 +75,16 @@
             </nav>
 
             <div class="p-4 bg-slate-900 border-t border-slate-800">
-                <button onclick="resetApp()" class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-red-200 bg-red-900 hover:bg-red-800 transition">
-                    <i class="fa-solid fa-trash mr-2"></i> Reset
+                <button onclick="logout()" class="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-red-200 bg-red-900 hover:bg-red-800 transition">
+                    <i class="fa-solid fa-right-from-bracket mr-2"></i> Logout
+                </button>
+                <button onclick="resetApp()" class="w-full mt-2 flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-red-200 bg-red-900 hover:bg-red-800 transition">
+                    <i class="fa-solid fa-trash mr-2"></i> Reset Daten
                 </button>
             </div>
         </aside>
 
         <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 relative p-6">
-
             <div id="view-fitness" class="view-section">
                 <header class="mb-6">
                     <h2 class="text-3xl font-bold text-gray-800">Fitness Tracker 🏃‍♂️</h2>
@@ -234,19 +278,25 @@
         </main>
     </div>
 
+    <script src="./auth/auth.js"></script>
+
     <script>
+        // Hauptvariablen müssen global sein, damit auth.js sie nutzen kann
         const STORAGE_KEY = 'lifetracker_ultimate_gram_v1';
         let entries = [];
         
-        let tempFood = null; // Speichert jetzt {name, kcalPer100, img}
+        let tempFood = null;
         let selectedMoodScore = null;
         let selectedMoodIcon = null;
+        
+        // Initialer Ladevorgang startet jetzt aus der auth.js
+        // document.addEventListener('DOMContentLoaded', ... ) wurde in auth.js verschoben
 
-        document.addEventListener('DOMContentLoaded', () => {
+        // Wichtige Funktionen, die von auth.js AUFGERUFEN werden müssen, um die Haupt-App zu steuern
+        function loadData() {
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) entries = JSON.parse(stored);
-            switchTab('fitness');
-        });
+        }
 
         function save() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
@@ -306,6 +356,7 @@
             document.getElementById('nut-error').classList.add('hidden');
 
             try {
+                // Open Food Facts API
                 const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=1`);
                 const data = await res.json();
                 
@@ -334,7 +385,11 @@
                     document.getElementById('nut-error').innerText = "Nichts gefunden.";
                     document.getElementById('nut-error').classList.remove('hidden');
                 }
-            } catch(e) { console.error(e); } 
+            } catch(e) { 
+                console.error(e); 
+                document.getElementById('nut-error').innerText = "Ein Fehler ist aufgetreten.";
+                document.getElementById('nut-error').classList.remove('hidden');
+            } 
             finally { btn.innerHTML = '<i class="fa-solid fa-search"></i>'; }
         }
 
@@ -370,7 +425,11 @@
             selectedMoodScore = score;
             selectedMoodIcon = icon;
             document.querySelectorAll('.mood-btn span.text-5xl').forEach(el => el.classList.add('grayscale'));
-            alert(`Stimmung ${icon} gewählt.`);
+            
+            const btnEl = event.currentTarget.querySelector('span.text-5xl');
+            if (btnEl) {
+                btnEl.classList.remove('grayscale');
+            }
         }
 
         function saveMood() {
@@ -383,6 +442,8 @@
             });
             document.getElementById('mood-note').value = '';
             selectedMoodScore = null;
+            
+            document.querySelectorAll('.mood-btn span.text-5xl').forEach(el => el.classList.add('grayscale'));
             save();
         }
 
@@ -431,41 +492,115 @@
             entries.forEach(e => {
                 if(e.type==='fitness') burn += e.val;
                 if(e.type==='nutrition') eat += e.val;
-                if(e.type==='mood' && e.score) { moodSum+=e.score; moodCount++; }
+                if(e.type==='mood') { moodSum += e.score; moodCount++; }
             });
-            document.getElementById('rep-burned').innerText = burn + ' kcal';
-            document.getElementById('rep-eaten').innerText = eat + ' kcal';
-            document.getElementById('rep-mood').innerText = moodCount>0 ? (moodSum/moodCount).toFixed(1) : '-';
+            document.getElementById('rep-burned').innerText = `${burn} kcal`;
+            document.getElementById('rep-eaten').innerText = `${eat} kcal`;
+            document.getElementById('rep-mood').innerText = moodCount > 0 ? (moodSum / moodCount).toFixed(1) + ' / 4' : '-';
         }
 
-        let chartMoodInstance=null, chartCalInstance=null;
+        // --- CHARTS / REPORTING ---
+        let moodChart, calChart;
+
         function updateCharts() {
-            if(document.getElementById('view-reporting').classList.contains('hidden')) return;
-            const chronological = [...entries].sort((a,b) => a.timestamp - b.timestamp);
+            const today = new Date().toISOString().slice(0, 10);
+            const dailyData = {}; // Speichert { Datum: { burned: N, eaten: N, mood: [scores] } }
+
+            entries.forEach(e => {
+                const dateKey = new Date(e.timestamp).toISOString().slice(0, 10);
+                if (!dailyData[dateKey]) {
+                    dailyData[dateKey] = { burned: 0, eaten: 0, moodScores: [] };
+                }
+
+                if (e.type === 'fitness') {
+                    dailyData[dateKey].burned += e.val;
+                } else if (e.type === 'nutrition') {
+                    dailyData[dateKey].eaten += e.val;
+                } else if (e.type === 'mood') {
+                    dailyData[dateKey].moodScores.push(e.score);
+                }
+            });
+
+            const sortedDates = Object.keys(dailyData).sort();
+
+            const chartLabels = sortedDates.slice(-7); // Letzte 7 Tage
+            const chartBurned = chartLabels.map(date => dailyData[date].burned);
+            const chartEaten = chartLabels.map(date => dailyData[date].eaten);
+            const chartMoodAvg = chartLabels.map(date => {
+                const scores = dailyData[date].moodScores;
+                return scores.length > 0 ? (scores.reduce((sum, s) => sum + s, 0) / scores.length).toFixed(1) : null;
+            });
             
-            const moodData = chronological.filter(e => e.type === 'mood');
-            const ctxMood = document.getElementById('chartMood').getContext('2d');
-            if(chartMoodInstance) chartMoodInstance.destroy();
-            chartMoodInstance = new Chart(ctxMood, {
+            // --- Energiebilanz Chart ---
+            if (calChart) calChart.destroy();
+            const calCtx = document.getElementById('chartCal').getContext('2d');
+            calChart = new Chart(calCtx, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [
+                        {
+                            label: 'Verbrannt (kcal)',
+                            data: chartBurned,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)', // blue-500
+                        },
+                        {
+                            label: 'Gegessen (kcal)',
+                            data: chartEaten,
+                            backgroundColor: 'rgba(22, 163, 74, 0.8)', // green-600
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'kcal' } } },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+
+            // --- Stimmung Chart ---
+            if (moodChart) moodChart.destroy();
+            const moodCtx = document.getElementById('chartMood').getContext('2d');
+            moodChart = new Chart(moodCtx, {
                 type: 'line',
                 data: {
-                    labels: moodData.map(e => new Date(e.timestamp).toLocaleDateString()),
-                    datasets: [{ label: 'Stimmung', data: moodData.map(e => e.score), borderColor: '#9333ea', tension: 0.4, fill: true, backgroundColor: 'rgba(147, 51, 234, 0.1)' }]
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Ø Stimmung (1=mies, 4=super)',
+                        data: chartMoodAvg,
+                        borderColor: 'rgba(168, 85, 247, 1)', // purple-500
+                        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                        tension: 0.4,
+                        spanGaps: true
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, scales: {y:{min:0, max:5}} }
-            });
-
-            let totalBurn = 0, totalEat = 0;
-            entries.forEach(e => { if(e.type==='fitness') totalBurn+=e.val; if(e.type==='nutrition') totalEat+=e.val; });
-            const ctxCal = document.getElementById('chartCal').getContext('2d');
-            if(chartCalInstance) chartCalInstance.destroy();
-            chartCalInstance = new Chart(ctxCal, {
-                type: 'bar',
-                data: { labels: ['Verbrannt', 'Gegessen'], datasets: [{ label: 'Kcal', data: [totalBurn, totalEat], backgroundColor: ['#3b82f6', '#22c55e'] }] },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { 
+                            min: 1, 
+                            max: 4, 
+                            stepSize: 1,
+                            title: { display: true, text: 'Stimmungsscore' } 
+                        } 
+                    },
+                    plugins: { legend: { display: false } }
+                }
             });
         }
-        function resetApp() { if(confirm("Löschen?")) { localStorage.removeItem(STORAGE_KEY); entries=[]; save(); } }
+
+        // --- APP RESET ---
+        function resetApp() {
+            if (confirm("WARNUNG: Alle Daten (Fitness, Ernährung, Stimmung) werden gelöscht. Fortfahren?")) {
+                entries = [];
+                localStorage.removeItem(STORAGE_KEY);
+                alert("Daten erfolgreich gelöscht.");
+                renderLists();
+                updateCharts();
+            }
+        }
     </script>
 </body>
 </html>
