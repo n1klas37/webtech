@@ -12,6 +12,23 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # --- Datenbank Modell ---
+
+# Datenbanktabelle für Kategorien
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_name = db.Column(db.String(50), nullable=False)
+    name = db.Column(db.String(50), nullable=False) # Name der Kategorie (z.B. "Lesen")
+    label = db.Column(db.String(50), nullable=False) # Was wird getrackt? (z.B. "Buchtitel")
+    unit = db.Column(db.String(20), nullable=False)  # Einheit (z.B. "Seiten")
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'label': self.label,
+            'unit': self.unit
+        }
+
 # Wir erstellen eine Tabelle, die alle Felder deiner JS-Objekte abdeckt
 class Entry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -59,6 +76,29 @@ def login():
     if data.get('username') == 'test' and data.get('password') == '1234':
         return jsonify({"success": True, "username": "test"})
     return jsonify({"success": False}), 401
+
+# A. Kategorien laden
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    username = request.args.get('user')
+    if not username: return jsonify([]), 400
+    
+    cats = Category.query.filter_by(user_name=username).all()
+    return jsonify([c.to_dict() for c in cats])
+
+# B. Kategorie erstellen
+@app.route('/api/categories', methods=['POST'])
+def add_category():
+    data = request.json
+    new_cat = Category(
+        user_name=data.get('user'),
+        name=data.get('name'),
+        label=data.get('label'),
+        unit=data.get('unit')
+    )
+    db.session.add(new_cat)
+    db.session.commit()
+    return jsonify(new_cat.to_dict())
 
 # 2. Daten laden
 @app.route('/api/entries', methods=['GET'])

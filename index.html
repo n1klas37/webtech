@@ -2,7 +2,7 @@
 <head>
     <meta charset = "UTF-8">
     <meta name = "viewport" content = "width = device-width, initial-scale = 1.0">
-    <title>WebTechnologie Projekt Healthtracker</title>
+    <title>WebTechnologie Projekt Lifetracker</title>
     <link rel="stylesheet" href="stylesheet.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -12,7 +12,7 @@
         <div id= "login-screen">
             <div class = "login-card">
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <h2>Willkommen beim Healthtracker</h2>
+                    <h2>Willkommen beim Lifetracker</h2>
                     <p>Bitte melde dich an.</p>
                 </div>
 
@@ -32,13 +32,16 @@
 
         <div id = "app-screen" class="hidden" style="display: flex; width: 100%; height: 100%;">
         <aside>
-            <h2>Healthtracker</h2>
+            <h2>Lifetracker</h2>
             <p>Hallo, <span id="display-username"></span>!</p>
             <nav>
                 <a href = "#" onclick="switchTab('fitness')" id = "nav-fitness" class="nav-item active"> Fitness</a>
                 <a href="#" onclick="switchTab('nutrition')" id="nav-nutrition" class="nav-item"> Ernährung</a>
                 <a href="#" onclick="switchTab('mood')" id="nav-mood" class="nav-item"> Stimmung</a>
                 <a href="#" onclick="switchTab('reporting')" id="nav-reporting" class="nav-item"> Reporting</a>
+                <div id="nav-custom-container" style="border-top: 1px solid #444; margin-top: 10px; padding-top: 10px;"></div>
+
+                <button onclick="switchTab('create-category')" id="nav-create-category" class="nav-item" style="color: var(--col-fitness); border: 1px dashed var(--col-fitness);"> + Neue Kategorie</button>
             </nav>
             <button onclick="logout()" class="nav-item" style="background:none; text-align:left; border:none; cursor:pointer; margin-top:auto;">Abmelden</button>
             <button onclick = "resetApp()" class = "btn-red"> Reset data</button>
@@ -179,8 +182,66 @@
                     <canvas id="chartCal"></canvas>
                 </div>
             </div>
+        </div id="view-new_category" class="view-section hidden">
+            <header>
+                <h1>Neue Kategorie anlegen</h1>
+                <p>Hier kann eine neue Kategorie angelegt werden.</p>
+                <br>
+            </header>
         </div>
+        <div id="view-create-category" class="view-section hidden">
+                <header>
+                    <h1>Neue Kategorie</h1>
+                    <p>Erstelle einen eigenen Tracker.</p>
+                </header>
+                <br>
+                <div class="card" style="max-width: 500px;">
+                    <label>Name der Kategorie</label>
+                    <input id="new-cat-name" type="text" placeholder="z.B. Meditation, Lesen, Wasser...">
+                    
+                    <label>Was möchtest du benennen? (Label)</label>
+                    <input id="new-cat-label" type="text" placeholder="z.B. Art, Buchtitel, Glas...">
+                    
+                    <label>Einheit für den Wert</label>
+                    <input id="new-cat-unit" type="text" placeholder="z.B. Minuten, Seiten, ml...">
+                    
+                    <button onclick="createCategory()" class="btn-blue">Kategorie erstellen</button>
+                </div>
+            </div>
 
+            <div id="view-custom" class="view-section hidden">
+                <header>
+                    <h1 id="custom-title">Kategorie</h1>
+                    <p>Dein eigener Tracker.</p>
+                </header>
+                <br>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Neuer Eintrag</h3>
+                        <label id="custom-label-text">Beschreibung</label>
+                        <input id="custom-input-text" type="text">
+                    
+                        <label>Wert (<span id="custom-unit-text"></span>)</label>
+                        <input id="custom-input-val" type="number" placeholder="0">
+
+                        <button onclick="addCustomEntry()" class="btn-blue">Speichern</button>
+                    </div>
+
+                    <div class="card">
+                        <h3>Verlauf</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Eintrag</th>
+                                    <th>Wert</th>
+                                    <th>Löschen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="list-custom"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </main>
         </div>
         <script src="script.js"></script>

@@ -1,6 +1,8 @@
 // Globale Variablen
 let entries = [];
-let currentUser = null; 
+let currentUser = null;
+let categories = []; //speichert die geladenen Kategorien
+let currentCustomCategory = null; //Speichert, welche Custom-Kategorie gerade offen ist
 
 // Temp Variablen
 let tempFood = null;
@@ -30,9 +32,9 @@ async function showMainApp() {
     document.getElementById('app-screen').classList.remove('hidden');
     document.getElementById('display-username').innerText = currentUser;
     
-    // WICHTIG: Daten vom Server laden statt localStorage
-    await loadDataFromServer();
-    
+
+    await loadDataFromServer(); // WICHTIG: Daten vom Server laden statt localStorage
+    await loadCategoriesFromServer(); // Kategorien laden
     switchTab('fitness');
 }
 
@@ -134,17 +136,26 @@ async function resetApp() {
 // --- Navigation & Charts (bleiben gleich, rufen nur renderLists auf) ---
 function switchTab(tabId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-    const targetView = document.getElementById('view-' + tabId);
-    if (targetView) targetView.classList.remove('hidden');
 
-    document.querySelectorAll('.nav-item').forEach(el => {
-        el.classList.remove('active', 'active-fitness', 'active-nutrition', 'active-mood', 'active-reporting');
-    })
+    // Spezialfall für Custom View
+    if(tabId === 'custom') {
+        document.getElementById('view-custom').classList.remove('hidden');
+    } else {
+        const targetView = document.getElementById('view-' + tabId);
+        if (targetView) targetView.classList.remove('hidden');
+        currentCustomCategory = null; // Reset wenn wir woanders hingehen
+    }
 
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+    // Highlight Buttons (Standard Tabs)
     const activeBtn = document.getElementById('nav-' + tabId);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-        activeBtn.classList.add('active-' + tabId);
+    if (activeBtn) activeBtn.classList.add('active');
+    
+    // Highlight Custom Button (wird eigentlich schon in openCustomCategory gemacht, aber zur Sicherheit)
+    if(tabId === 'custom' && currentCustomCategory) {
+         const catBtn = document.getElementById('nav-cat-' + currentCustomCategory.id);
+         if(catBtn) catBtn.classList.add('active');
     }
 
     if (tabId === 'reporting') updateCharts();
@@ -320,7 +331,21 @@ function renderLists() {
             </div>
         </div>
     `).join('');
+    
+    // D. Custom Liste
+    if (currentCustomCategory) {
+        const typeKey = 'custom_' + currentCustomCategory.id;
+        const customEntries = entries.filter(e => e.type === typeKey);
         
+        document.getElementById('list-custom').innerHTML = customEntries.map(e => `
+            <tr>
+                <td>${e.text}<br><small style="color:#999">${new Date(e.timestamp).toLocaleTimeString()}</small></td>
+                <td style="font-weight:bold;">${e.val} ${currentCustomCategory.unit}</td>
+                <td><button onclick="del(${e.id})" class="btn-small btn-red">X</button></td>
+            </tr>
+        `).join('');
+    }
+
     updateStats();
 }
 
@@ -377,4 +402,95 @@ function updateCharts() {
             }] 
         }
     });
+}
+
+// --- Kategorien Logik ---
+async function loadCategoriesFromServer() {
+    try {
+        const res = await fetch(`/api/categories?user=${currentUser}`);
+        categories = await res.json();
+        renderSidebar();
+    } catch (e) {
+        console.error("Fehler beim Laden der Kategorien", e);
+    }
+}
+
+function renderSidebar() {
+    const container = document.getElementById('nav-custom-container');
+    container.innerHTML = ''; // Leeren
+
+    categories.forEach(cat => {
+        const btn = document.createElement('a');
+        btn.href = '#';
+        btn.className = 'nav-item';
+        btn.id = 'nav-cat-' + cat.id;
+        btn.innerText = cat.name;
+        btn.onclick = () => openCustomCategory(cat);
+        container.appendChild(btn);
+    });
+}
+
+async function createCategory() {
+    const name = document.getElementById('new-cat-name').value;
+    const label = document.getElementById('new-cat-label').value;
+    const unit = document.getElementById('new-cat-unit').value;
+
+    if(!name || !label || !unit) return alert("Bitte alles ausfüllen!");
+
+    try {
+        const res = await fetch('/api/categories', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user: currentUser, name, label, unit })
+        });
+        const newCat = await res.json();
+        categories.push(newCat);
+        renderSidebar();
+        
+        // Felder leeren und direkt zur neuen Kategorie springen
+        document.getElementById('new-cat-name').value = '';
+        document.getElementById('new-cat-label').value = '';
+        document.getElementById('new-cat-unit').value = '';
+        openCustomCategory(newCat);
+        
+    } catch(e) {
+        console.error(e);
+        alert("Fehler beim Erstellen.");
+    }
+}
+
+function openCustomCategory(cat) {
+    currentCustomCategory = cat;
+    
+    // UI Texte anpassen
+    document.getElementById('custom-title').innerText = cat.name;
+    document.getElementById('custom-label-text').innerText = cat.label;
+    document.getElementById('custom-unit-text').innerText = cat.unit;
+    document.getElementById('custom-input-text').placeholder = cat.label;
+
+    switchTab('custom'); // Öffnet die generische View
+    
+    // Highlight den Button in der Sidebar
+    document.getElementById('nav-cat-' + cat.id).classList.add('active');
+}
+
+function addCustomEntry() {
+    if(!currentCustomCategory) return;
+    
+    const text = document.getElementById('custom-input-text').value;
+    const val = document.getElementById('custom-input-val').value;
+
+    if(!text || !val) return alert("Bitte ausfüllen");
+
+    const newEntry = {
+        type: 'custom_' + currentCustomCategory.id, // Trick: Wir nutzen den Typ mit ID
+        text: text,
+        val: parseInt(val),
+        timestamp: Date.now()
+    };
+
+    sendEntryToServer(newEntry);
+    
+    document.getElementById('custom-input-text').value = '';
+    document.getElementById('custom-input-val').value = '';
 }
