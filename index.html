@@ -3,58 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebTech-Projekt: LifeTracker</title>
+    <title>WebTech: Life-OS</title>
     <link rel="stylesheet" href="stylesheet.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+
     <div id="login-screen">
-    <div class="login-card">
-        <div style="text-align: center; margin-bottom: 20px;">
-            <h2 id="auth-title">Willkommen im LifeTracker</h2>
-            <p id="auth-subtitle">Bitte melde dich an.</p>
-        </div>
+        <div class="login-card">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 id="auth-title">Willkommen im Life-OS</h2>
+                <p id="auth-subtitle">Bitte melde dich an.</p>
+            </div>
 
-        <p id="auth-error" class="hidden" style="color: var(--col-delete); font-size: 0.9rem; text-align:center; margin-bottom:10px;"></p>
-        <p id="auth-success" class="hidden" style="color: var(--col-nutrition); font-size: 0.9rem; text-align:center; margin-bottom:10px;"></p>
+            <p id="auth-error" class="hidden" style="color: var(--col-delete); font-size: 0.9rem; text-align:center; margin-bottom:10px;"></p>
+            <p id="auth-success" class="hidden" style="color: var(--col-nutrition); font-size: 0.9rem; text-align:center; margin-bottom:10px;"></p>
 
-        <label>Benutzername</label>
-        <input type="text" id="username" placeholder="Dein Name">
+            <label>Benutzername</label>
+            <input type="text" id="username" placeholder="Dein Name">
 
-        <div id="email-container" class="hidden">
-            <label>E-Mail Adresse</label>
-            <input type="email" id="email" placeholder="name@beispiel.com">
-        </div>
+            <div id="email-container" class="hidden">
+                <label>E-Mail Adresse</label>
+                <input type="email" id="email" placeholder="name@beispiel.com">
+            </div>
 
-        <label>Passwort</label>
-        <input type="password" id="password" placeholder="Dein Passwort">
+            <label>Passwort</label>
+            <input type="password" id="password" placeholder="Dein Passwort">
 
-        <button id="btn-login" onclick="handleLogin()" class="btn-blue">Einloggen</button>
-        <button id="btn-register" onclick="handleRegister()" class="btn-green hidden">Kostenlos Registrieren</button>
-        
-        <p style="margin-top: 15px; text-align: center; font-size: 0.9rem;">
-            <span id="txt-toggle">Noch kein Konto?</span>
-            <a href="#" onclick="toggleAuthMode()" id="link-toggle" style="color: var(--col-fitness); font-weight: bold;">Jetzt registrieren</a>
-        </p>
-    </div>
-</div>
-
-    <div id="app-screen" class="hidden" style="display:flex; height:100vh;">
-        <aside>
-            <h2>LifeTracker</h2>
-            <p id="display-username"></p>
+            <button id="btn-login" onclick="handleLogin()" class="btn-blue">Einloggen</button>
+            <button id="btn-register" onclick="handleRegister()" class="btn-green hidden">Kostenlos Registrieren</button>
             
-            <nav id="nav-container"></nav>
+            <p style="margin-top: 15px; text-align: center; font-size: 0.9rem;">
+                <span id="txt-toggle">Noch kein Konto?</span>
+                <a href="#" onclick="toggleAuthMode()" id="link-toggle" style="color: var(--col-fitness); font-weight: bold;">Jetzt registrieren</a>
+            </p>
+        </div>
+    </div>
+
+    <div id="app-screen" class="hidden">
+        <aside>
+            <h2>Life-OS</h2>
+            <p id="display-username" style="text-align:center; opacity:0.7; margin-bottom:20px;"></p>
+            
+            <nav id="nav-container">
+                </nav>
             
             <hr style="border-color:#333; margin:10px 0; width:100%">
             
             <nav>
                  <a href="#" onclick="switchTab('reporting')" id="nav-reporting" class="nav-item">📊 Reporting</a>
-                 <button onclick="switchTab('create-category')" class="nav-item" style="color:#3b82f6; border:1px dashed #3b82f6">+ Neue Kategorie</button>
+                 <button onclick="switchTab('create-category')" class="nav-item" style="color:#3b82f6; border:1px dashed #3b82f6; background:transparent;">+ Neue Kategorie</button>
             </nav>
             
             <button onclick="logout()" class="nav-item" style="margin-top:auto">Abmelden</button>
-            <button onclick="resetApp()" class="btn-red">Alles Löschen</button>
         </aside>
 
         <main>
@@ -72,13 +73,16 @@
 
                         <div id="gen-inputs-container"></div>
 
-                        <button onclick="addGenericEntry()" class="btn-blue" style="margin-top:20px;">Speichern</button>
+                        <label style="margin-top:15px;">Notiz (Optional)</label>
+                        <input type="text" id="entry-note" placeholder="Kurze Notiz...">
+
+                        <button onclick="addGenericEntry()" class="btn-blue" style="margin-top:10px;">Speichern</button>
                     </div>
 
                     <div class="card">
                         <h3>Verlauf</h3>
                         <table>
-                            <thead><tr><th>Details</th><th>Zeit</th><th>Löschen</th></tr></thead>
+                            <thead><tr><th>Details</th><th>Notiz</th><th>Zeit</th><th>Löschen</th></tr></thead>
                             <tbody id="list-generic"></tbody>
                         </table>
                     </div>
@@ -88,13 +92,18 @@
             <div id="view-create-category" class="view-section hidden">
                 <header><h1>Neue Kategorie erstellen</h1></header>
                 <div class="card" style="max-width:600px; margin-top:20px;">
-                    <label>Name</label>
-                    <input id="new-cat-name" type="text" placeholder="Name der Kategorie">
-                    <h3>Felder</h3>
+                    <label>Name der Kategorie</label>
+                    <input id="new-cat-name" type="text" placeholder="z.B. Finanzen">
+                    
+                    <label>Beschreibung</label>
+                    <input id="new-cat-desc" type="text" placeholder="Worum geht es?">
+
+                    <h3>Felder definieren</h3>
                     <div id="field-list-container"></div>
-                    <button onclick="addFieldRow()" class="btn-small">+ Feld</button>
-                    <br><br>
-                    <button onclick="createCategory()" class="btn-blue">Erstellen</button>
+                    <button onclick="addFieldRow()" class="btn-small" style="margin-bottom:15px;">+ Feld hinzufügen</button>
+                    
+                    <hr>
+                    <button onclick="createCategory()" class="btn-blue">Kategorie Erstellen</button>
                 </div>
             </div>
 
@@ -102,11 +111,12 @@
                 <header><h1>Auswertung</h1></header>
                 <br>
                 <div class="card">
-                    <canvas id="chart-balance"></canvas>
+                    <canvas id="chart-balance" style="max-height: 400px;"></canvas>
                 </div>
             </div>
         </main>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
