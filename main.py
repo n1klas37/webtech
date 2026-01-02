@@ -116,7 +116,7 @@ def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
     return {"success": True, "token": token, "name": new_user.name}
 
 
-@app.post("/api/login", response_model=schemas.LoginSuccess)
+@app.post("/login", response_model=schemas.LoginSuccess)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     # Suche nach name
     user = db.query(models.User).filter(models.User.name == user_data.name).first()
