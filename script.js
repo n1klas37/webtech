@@ -156,29 +156,41 @@ function logout() {
 // Daten Laden
 // ==========================================
 async function loadData() {
+    // 1. WICHTIG: ID sofort sichern, BEVOR wir laden.
+    // So behalten wir die Info, auch wenn "categories" gleich überschrieben wird.
+    const savedId = currentCategory ? currentCategory.id : null;
+
     if (!authToken) return;
 
-    // 1. Kategorien laden
+    // 2. Kategorien laden
     const catRes = await apiFetch('/categories/');
     if (catRes && catRes.ok) {
         categories = await catRes.json();
     }
 
-    // 2. Einträge laden
+    // 3. Einträge laden
     const entRes = await apiFetch('/entries/');
     if (entRes && entRes.ok) {
         entries = await entRes.json();
     }
-
+     
     renderSidebar();
 
-    // Ansicht wiederherstellen oder erste Kategorie öffnen
-    if (currentCategory) {
-        // Prüfen, ob Kategorie noch existiert
-        const found = categories.find(c => c.id === currentCategory.id);
-        if (found) openCategory(found);
-        else if (categories.length > 0) openCategory(categories[0]);
+    // 4. Ansicht wiederherstellen
+    let foundCategory = null;
+
+    if (savedId) {
+        // Wir suchen die gemerkte ID in den NEUEN Daten
+        // (nutze '==' für Sicherheit bei String/Number Vergleich)
+        foundCategory = categories.find(c => c.id == savedId);
+    }
+
+    if (foundCategory) {
+        // Wenn gefunden: Diese wieder öffnen
+        openCategory(foundCategory);
     } else if (categories.length > 0) {
+        // Fallback: Wenn wir vorher nirgends waren (oder die Kategorie gelöscht wurde),
+        // öffnen wir die erste verfügbare.
         openCategory(categories[0]);
     }
 }
@@ -194,7 +206,7 @@ function renderSidebar() {
         btn.id = 'nav-cat-' + cat.id;
         
         // Icon basierend auf Name
-        let icon = '📂';
+        let icon = '';
         const n = cat.name.toLowerCase();
         if(n.includes('fit') || n.includes('sport')) icon = '🏃';
         if(n.includes('essen') || n.includes('ernährung')) icon = '🍎';
@@ -296,7 +308,7 @@ async function addGenericEntry() {
         // Reset Inputs
         inputs.forEach(i => i.value = '');
         document.getElementById('entry-note').value = '';
-        loadData(); // Neu laden
+        await loadData(); // Neu laden
     } else {
         alert("Fehler beim Speichern.");
     }
@@ -305,10 +317,18 @@ async function addGenericEntry() {
 function renderEntryList() {
     const tbody = document.getElementById('list-generic');
     
-    // Filtern: Nur Einträge dieser Kategorie
+    // 1. Limit aus dem Dropdown holen
+    const limitInput = document.getElementById('entry-limit');
+    // Fallback auf 10, falls Element noch nicht geladen (Sicherheitshalber)
+    const limit = limitInput ? parseInt(limitInput.value) : 10;
+
+    // 2. Filtern: Nur Einträge dieser Kategorie
     const catEntries = entries.filter(e => e.category_id === currentCategory.id);
 
-    tbody.innerHTML = catEntries.map(e => {
+    // 3. Begrenzen der Anzeige (slice von 0 bis limit)
+    const displayedEntries = catEntries.slice(0, limit);
+
+    tbody.innerHTML = displayedEntries.map(e => {
         // e.data enthält die Werte { "Gewicht": "80", ... }
         let detailsHtml = '';
         if (e.data) {
@@ -340,7 +360,7 @@ async function deleteEntry(id) {
     
     const res = await apiFetch('/entries/' + id, { method: 'DELETE' });
     if(res && res.ok) {
-        loadData();
+        await loadData();
     }
 }
 

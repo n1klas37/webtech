@@ -80,7 +80,15 @@
                     </div>
 
                     <div class="card">
-                        <h3>Verlauf</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <h3 style="margin:0;">Verlauf</h3>
+                            <select id="entry-limit" onchange="renderEntryList()" style="width:auto; padding:5px; margin:0;">
+                                <option value="5">5 Einträge</option>
+                                <option value="10" selected>10 Einträge</option>
+                                <option value="25">25 Einträge</option>
+                                <option value="10000">Alle</option>
+                            </select>
+                        </div>
                         <table>
                             <thead><tr><th>Details</th><th>Notiz</th><th>Zeit</th><th>Löschen</th></tr></thead>
                             <tbody id="list-generic"></tbody>
