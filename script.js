@@ -9,6 +9,8 @@ let currentUser = sessionStorage.getItem('lifeos_user');
 let categories = [];
 let entries = [];
 let currentCategory = null;
+let editingEntryId = null;   // Speichert die ID des Eintrags, den wir gerade bearbeiten
+let editingEntryDate = null; // Speichert das ursprüngliche Datum
 
 // ==========================================
 // Initialisierung
@@ -127,7 +129,7 @@ async function handleRegister() {
     }
 
     // Backend erwartet schemas.UserRegister
-    const res = await fetch(API_BASE + '/api/register', {
+    const res = await fetch(API_BASE + '/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name, email: mail, password: pass })
@@ -156,19 +158,19 @@ function logout() {
 // Daten Laden
 // ==========================================
 async function loadData() {
-    // 1. WICHTIG: ID sofort sichern, BEVOR wir laden.
-    // So behalten wir die Info, auch wenn "categories" gleich überschrieben wird.
-    const savedId = currentCategory ? currentCategory.id : null;
+    // 1. ID sichern & Debugging
+    // Wir wandeln die ID in einen String um, um Typ-Probleme zu vermeiden
+    const savedId = currentCategory ? String(currentCategory.id) : null;
+    console.log("🔄 loadData: Versuche ID wiederherzustellen:", savedId);
 
     if (!authToken) return;
 
-    // 2. Kategorien laden
+    // 2. Daten neu laden
     const catRes = await apiFetch('/categories/');
     if (catRes && catRes.ok) {
         categories = await catRes.json();
     }
 
-    // 3. Einträge laden
     const entRes = await apiFetch('/entries/');
     if (entRes && entRes.ok) {
         entries = await entRes.json();
@@ -176,21 +178,19 @@ async function loadData() {
      
     renderSidebar();
 
-    // 4. Ansicht wiederherstellen
+    // 3. Ansicht wiederherstellen
     let foundCategory = null;
 
     if (savedId) {
-        // Wir suchen die gemerkte ID in den NEUEN Daten
-        // (nutze '==' für Sicherheit bei String/Number Vergleich)
-        foundCategory = categories.find(c => c.id == savedId);
+        // Robuster Vergleich: Beides als String vergleichen
+        foundCategory = categories.find(c => String(c.id) === savedId);
     }
 
     if (foundCategory) {
-        // Wenn gefunden: Diese wieder öffnen
+        console.log("✅ Kategorie wiedergefunden:", foundCategory.name);
         openCategory(foundCategory);
     } else if (categories.length > 0) {
-        // Fallback: Wenn wir vorher nirgends waren (oder die Kategorie gelöscht wurde),
-        // öffnen wir die erste verfügbare.
+        console.log("⚠️ Kategorie nicht gefunden, lade Erste:", categories[0].name);
         openCategory(categories[0]);
     }
 }
@@ -222,6 +222,12 @@ function renderSidebar() {
 // Hauptansicht: Kategorie & Einträge
 // ==========================================
 function openCategory(cat) {
+    // RESET Edit Mode
+    editingEntryId = null;
+    editingEntryDate = null;
+    const btn = document.getElementById('btn-save-entry');
+    if(btn) btn.innerText = "Speichern";
+
     currentCategory = cat;
     switchTab('generic');
     
@@ -272,16 +278,17 @@ function openCategory(cat) {
     if(activeBtn) activeBtn.classList.add('active');
 }
 
-async function addGenericEntry() {
+async function saveEntry() {
     if (!currentCategory) return;
 
     const inputs = document.querySelectorAll('.gen-input');
     const values = {};
     let hasContent = false;
 
+    // Werte auslesen
     inputs.forEach(input => {
         if (input.value.trim() !== '') {
-            values[input.dataset.label] = input.value; // Label als Key
+            values[input.dataset.label] = input.value;
             hasContent = true;
         }
     });
@@ -291,27 +298,76 @@ async function addGenericEntry() {
         return;
     }
 
-    // Datenpaket für Backend (EntryCreate Schema)
+    // Payload bauen
     const payload = {
         category_id: currentCategory.id,
-        occurred_at: new Date().toISOString(),
+        // Wenn wir bearbeiten, nimm das alte Datum, sonst JETZT
+        occurred_at: editingEntryId ? editingEntryDate : new Date().toISOString(),
         note: document.getElementById('entry-note').value,
         values: values
     };
 
-    const res = await apiFetch('/entries/', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-    });
+    let res;
+    
+    if (editingEntryId) {
+        // --- UPDATE (PUT) ---
+        res = await apiFetch('/entries/' + editingEntryId, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+    } else {
+        // --- CREATE (POST) ---
+        res = await apiFetch('/entries/', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    }
 
     if (res && res.ok) {
-        // Reset Inputs
+        // Reset Inputs & Mode
         inputs.forEach(i => i.value = '');
         document.getElementById('entry-note').value = '';
-        await loadData(); // Neu laden
+        
+        // Modus zurücksetzen
+        editingEntryId = null;
+        editingEntryDate = null;
+        document.getElementById('btn-save-entry').innerText = "Speichern";
+
+        await loadData(); // Tabelle neu laden
     } else {
         alert("Fehler beim Speichern.");
     }
+}
+
+function startEditEntry(id) {
+    // Eintrag in der lokalen Liste finden
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+
+    // Globale Variablen setzen
+    editingEntryId = entry.id;
+    editingEntryDate = entry.occurred_at; // Datum beibehalten!
+
+    // Button Text ändern
+    document.getElementById('btn-save-entry').innerText = "Ändern ✅";
+
+    // Notiz füllen
+    document.getElementById('entry-note').value = entry.note || '';
+
+    // Felder füllen
+    const inputs = document.querySelectorAll('.gen-input');
+    inputs.forEach(input => {
+        const label = input.dataset.label;
+        // Wenn der Eintrag Daten für dieses Label hat, einfügen
+        if (entry.data && entry.data[label] !== undefined) {
+            input.value = entry.data[label];
+        } else {
+            input.value = '';
+        }
+    });
+    
+    // Nach oben scrollen, damit der User sieht, wo er editiert
+    document.getElementById('gen-inputs-container').scrollIntoView({behavior: 'smooth'});
 }
 
 function renderEntryList() {
@@ -333,9 +389,9 @@ function renderEntryList() {
         let detailsHtml = '';
         if (e.data) {
             for (const [key, val] of Object.entries(e.data)) {
-                detailsHtml += `<span style="margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:4px; font-size:0.85rem;">
+                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:4px; font-size:0.85rem;">
                     <b>${key}:</b> ${val}
-                </span>`;
+                </span> `;
             }
         }
 
@@ -343,15 +399,16 @@ function renderEntryList() {
         const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
         return `
-            <tr>
-                <td>${detailsHtml}</td>
-                <td style="font-style:italic; color:#666;">${e.note || '-'}</td>
-                <td style="font-size:0.8rem;">${timeStr}</td>
-                <td>
-                    <button onclick="deleteEntry(${e.id})" class="btn-small btn-red" style="margin:0;">Löschen</button>
-                </td>
-            </tr>
-        `;
+        <tr>
+            <td>${detailsHtml}</td>
+            <td style="font-style:italic; color:#666;">${e.note || '-'}</td>
+            <td style="font-size:0.8rem;">${timeStr}</td>
+            <td>
+                <button onclick="startEditEntry(${e.id})" class="btn-small btn-blue" style="margin:0; margin-bottom:5px;">✏️</button>
+                <button onclick="deleteEntry(${e.id})" class="btn-small btn-red" style="margin:0;">🗑️</button>
+            </td>
+        </tr>
+    `;
     }).join('');
 }
 
@@ -431,6 +488,35 @@ async function createCategory() {
         }
     } else {
         alert("Fehler beim Erstellen der Kategorie.");
+    }
+}
+
+async function editCurrentCategory() {
+    if(!currentCategory) return;
+
+    // Aktuelle Werte als Vorschlag anzeigen
+    const newName = prompt("Neuer Name für die Kategorie:", currentCategory.name);
+    if (newName === null) return; // Abbrechen gedrückt
+
+    const newDesc = prompt("Neue Beschreibung:", currentCategory.description);
+    if (newDesc === null) return; 
+
+    // Payload für Backend (CategoryUpdate Schema)
+    const payload = {
+        name: newName,
+        description: newDesc
+    };
+
+    const res = await apiFetch('/categories/' + currentCategory.id, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+    });
+
+    if (res && res.ok) {
+        alert("Kategorie aktualisiert!");
+        await loadData(); // Alles neu laden (Sidebar & Titel aktualisieren sich dann)
+    } else {
+        alert("Fehler beim Aktualisieren.");
     }
 }
 

@@ -28,7 +28,7 @@
             </div>
 
             <label>Passwort</label>
-            <input type="password" id="password" placeholder="Dein Passwort">
+            <input type="password" id="password" placeholder="Min. 8 Zeichen, Zahl & Großbuchstabe">
 
             <button id="btn-login" onclick="handleLogin()" class="btn-blue">Einloggen</button>
             <button id="btn-register" onclick="handleRegister()" class="btn-green hidden">Kostenlos Registrieren</button>
@@ -60,10 +60,14 @@
 
         <main>
             <div id="view-generic" class="view-section hidden">
-                <header>
-                    <h1 id="gen-title">Kategorie</h1>
+                <header style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <h1 id="gen-title" style="display:inline-block; margin-right:10px;">Kategorie</h1>
+                        <button onclick="editCurrentCategory()" class="btn-small" style="background:#64748b; width:auto;">⚙️</button>
+                    </div>
                     <p>Neuer Eintrag</p>
                 </header>
+
                 <br>
                 <div class="grid-2">
                     <div class="card">
@@ -76,7 +80,7 @@
                         <label style="margin-top:15px;">Notiz (Optional)</label>
                         <input type="text" id="entry-note" placeholder="Kurze Notiz...">
 
-                        <button onclick="addGenericEntry()" class="btn-blue" style="margin-top:10px;">Speichern</button>
+                        <button id="btn-save-entry" onclick="saveEntry()" class="btn-blue" style="margin-top:10px;">Speichern</button>
                     </div>
 
                     <div class="card">
