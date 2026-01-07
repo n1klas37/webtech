@@ -20,11 +20,12 @@ def seed():
     db.query(models.User).delete()
     db.commit()
 
-    print("Erstelle User: testuser / test")
+    print("Erstelle User: testuser / Test1234!")
+    # ACHTUNG: Passwort muss jetzt stark sein!
     user = models.User(
         name="testuser",
         email="test@test.de",
-        password_hash=pwd_context.hash("test")
+        password_hash=pwd_context.hash("Test1234!")
     )
     db.add(user)
     db.commit()
@@ -74,7 +75,7 @@ def seed():
         print(f"   {len(cat_data['entries'])} Eintraege importiert.")
 
     db.close()
-    print("Fertig! Login mit: testuser / test")
+    print("Fertig! Login mit: testuser / Test1234!")
 
 
 if __name__ == "__main__":

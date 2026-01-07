@@ -1,22 +1,19 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, JSON, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
-
 from datetime import datetime
 
 
-# --- USER & SESSION ---
+# --- User & Session ---
 
 class User(Base):
     __tablename__ = "user"
     id = Column(Integer, primary_key=True)
-    # ÄNDERUNG: name statt username, email hinzugefügt
     name = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationen
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     categories = relationship("Category", back_populates="user", cascade="all, delete-orphan")
     entries = relationship("Entry", back_populates="user", cascade="all, delete-orphan")
@@ -32,7 +29,7 @@ class Session(Base):
     user = relationship("User", back_populates="sessions")
 
 
-# --- KATEGORIEN ---
+# --- Categories ---
 
 class Category(Base):
     __tablename__ = "category"
@@ -58,7 +55,7 @@ class CategoryField(Base):
     category = relationship("Category", back_populates="fields")
 
 
-# --- EINTRÄGE ---
+# --- Entries ---
 
 class Entry(Base):
     __tablename__ = "entry"
@@ -66,11 +63,8 @@ class Entry(Base):
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     category_id = Column(Integer, ForeignKey("category.id"))
 
-    # DateTime Objekt
     occurred_at = Column(DateTime, default=datetime.utcnow)
     note = Column(Text)
-
-    # JSON Daten
     data = Column(JSON)
 
     user = relationship("User", back_populates="entries")
