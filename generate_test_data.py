@@ -3,7 +3,7 @@ import random
 import datetime
 
 FILENAME = "test_data.json"
-NUM_ENTRIES = 50
+NUM_ENTRIES = 5000
 
 def random_date():
     start = datetime.datetime.now() - datetime.timedelta(days=60)

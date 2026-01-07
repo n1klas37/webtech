@@ -1,0 +1,23 @@
+# --- Betriebssystem (Mac & Windows Müll) ---
+.DS_Store
+Thumbs.db
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Virtuelle Umgebungen ---
+.venv/
+
+
+# --- Datenbank & Lokale Daten ---
+*.db
+*.sqlite3
+*.json
+
+# --- IDEs (Einstellungen von PyCharm oder VS Code) ---
+.idea/
+.vscode/
+*.swp
