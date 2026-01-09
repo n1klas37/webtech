@@ -43,7 +43,12 @@
     <div id="app-screen" class="hidden">
         <aside>
             <h2>Life-OS</h2>
-            <p id="display-username" style="text-align:center; opacity:0.7; margin-bottom:20px;"></p>
+            
+            <nav>
+                <a href="#" onclick="switchTab('homepage')" id="nav-homepage" class="nav-item">🏠 Homepage</a>
+            </nav>
+            <nav id="nav-container">
+            </nav>
             
             <nav id="nav-container">
                 </nav>
@@ -55,82 +60,112 @@
                  <button onclick="switchTab('create-category')" class="nav-item" style="color:#3b82f6; border:1px dashed #3b82f6; background:transparent;">+ Neue Kategorie</button>
             </nav>
             
-            <button onclick="logout()" class="nav-item" style="margin-top:auto">Abmelden</button>
+            <p id="display-username" style="text-align:center; opacity:0.7; margin-top:auto;"></p>
+            <button onclick="logout()" class="nav-item">Abmelden</button>
         </aside>
 
         <main>
-            <div id="view-generic" class="view-section hidden">
-                <header style="display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <h1 id="gen-title" style="display:inline-block; margin-right:10px;">Kategorie</h1>
-                        <button onclick="editCurrentCategory()" class="btn-small" style="background:#64748b; width:auto;">⚙️</button>
-                    </div>
-                    <p>Neuer Eintrag</p>
+            <div id="view-homepage" class="view-section hidden">
+                <header style="margin-bottom: 30px;">
+                    <h1 style="font-size: 2.5rem; margin-bottom: 10px;">
+                        Hallo, <span id="home-user-name" style="color: var(--col-fitness);">Nutzer</span>! 👋
+                    </h1>
+                    <p style="color: #64748b; font-size: 1.1rem;">Willkommen zurück in deinem Life-OS.</p>
                 </header>
 
-                <br>
                 <div class="grid-2">
-                    <div class="card">
-                        <h3>Eintragen</h3>
-                        
-                        <div id="special-widget-container" style="margin-bottom:20px;"></div>
-    
-                        <label style="font-weight: bold;">Zeitpunkt</label>
-                        <input type="datetime-local" id="entry-ts" style="margin-bottom: 15px;">
-
-                        <div id="gen-inputs-container"></div>
-
-                        <label style="margin-top:15px;">Notiz (Optional)</label>
-                        <input type="text" id="entry-note" placeholder="Kurze Notiz...">
-
-                        <button id="btn-save-entry" onclick="saveEntry()" class="btn-blue" style="margin-top:10px;">Speichern</button>
+                    <div class="card" style="border-left: 5px solid var(--col-fitness);">
+                        <h3>🚀 Schnellstart</h3>
+                        <p>Wähle eine Kategorie aus der Seitenleiste links, um neue Einträge zu erfassen oder deinen Verlauf anzusehen.</p>
                     </div>
 
-                    <div class="card">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <h3 style="margin:0;">Verlauf</h3>
-                            <select id="entry-limit" onchange="renderEntryList()" style="width:auto; padding:5px; margin:0;">
-                                <option value="5">5 Einträge</option>
-                                <option value="10" selected>10 Einträge</option>
-                                <option value="25">25 Einträge</option>
-                                <option value="10000">Alle</option>
-                            </select>
+                    <div class="card" style="border-left: 5px solid var(--col-report);">
+                        <h3>📊 Dein Status</h3>
+                        <p>Schau dir unter "Reporting" an, wie sich deine Daten entwickeln und behalte den Überblick.</p>
+                        <button onclick="switchTab('reporting')" class="btn-small btn-blue" style="margin-top:10px; width:auto;">Zum Reporting</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-generic" class="view-section hidden">
+                <header style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <div style="display:flex; align-items:center; gap: 10px;">
+                            <h1 id="gen-title" style="margin:0;">Kategorie</h1>
+                            
+                            <button onclick="editCurrentCategory()" title="Bearbeiten" class="btn-small" style="background:#64748b; width:auto;">⚙️</button>
+                            
+                            <button onclick="deleteCurrentCategory()" title="Kategorie Löschen" class="btn-small btn-red" style="width:auto; margin:0;">🗑️</button>
                         </div>
-                        <table>
-                            <thead><tr><th>Details</th><th>Notiz</th><th>Zeit</th><th>Löschen</th></tr></thead>
-                            <tbody id="list-generic"></tbody>
-                        </table>
+                        
+                        <p id="gen-desc" style="color:#666; margin-top:5px; margin-bottom:0; font-style:italic;"></p>
                     </div>
-                </div>
-            </div>
 
-            <div id="view-create-category" class="view-section hidden">
-                <header><h1>Neue Kategorie erstellen</h1></header>
-                <div class="card" style="max-width:600px; margin-top:20px;">
-                    <label>Name der Kategorie</label>
-                    <input id="new-cat-name" type="text" placeholder="z.B. Finanzen">
-                    
-                    <label>Beschreibung</label>
-                    <input id="new-cat-desc" type="text" placeholder="Worum geht es?">
+                    <p style="opacity: 0.5; font-size: 0.9rem;">Neuer Eintrag</p>
+                </header>
+                    <br>
+                        <div class="grid-2">
+                            <div class="card">
+                                <h3>Eintragen</h3>
+                                
+                                <div id="special-widget-container" style="margin-bottom:20px;"></div>
+            
+                                <label style="font-weight: bold;">Zeitpunkt</label>
+                                <input type="datetime-local" id="entry-ts" style="margin-bottom: 15px;">
 
-                    <h3>Felder definieren</h3>
-                    <div id="field-list-container"></div>
-                    <button onclick="addFieldRow()" class="btn-small" style="margin-bottom:15px;">+ Feld hinzufügen</button>
-                    
-                    <hr>
-                    <button onclick="createCategory()" class="btn-blue">Kategorie Erstellen</button>
-                </div>
-            </div>
+                                <div id="gen-inputs-container"></div>
 
-            <div id="view-reporting" class="view-section hidden">
-                <header><h1>Auswertung</h1></header>
-                <br>
-                <div class="card">
-                    <canvas id="chart-balance" style="max-height: 400px;"></canvas>
-                </div>
-            </div>
-        </main>
-    </div>
+                                <label style="margin-top:15px;">Notiz (Optional)</label>
+                                <input type="text" id="entry-note" placeholder="Kurze Notiz...">
+
+                                <button id="btn-save-entry" onclick="saveEntry()" class="btn-blue" style="margin-top:10px;">Speichern</button>
+                            </div>
+
+                            <div class="card">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                    <h3 style="margin:0;">Verlauf</h3>
+                                    <select id="entry-limit" onchange="renderEntryList()" style="width:auto; padding:5px; margin:0;">
+                                        <option value="5">5 Einträge</option>
+                                        <option value="10" selected>10 Einträge</option>
+                                        <option value="25">25 Einträge</option>
+                                        <option value="10000">Alle</option>
+                                    </select>
+                                </div>
+                                <table>
+                                    <thead><tr><th>Details</th><th>Notiz</th><th>Zeit</th><th>Löschen</th></tr></thead>
+                                    <tbody id="list-generic"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="view-create-category" class="view-section hidden">
+                        <header><h1>Neue Kategorie erstellen</h1></header>
+                        <div class="card" style="max-width:600px; margin-top:20px;">
+                            <label>Name der Kategorie</label>
+                            <input id="new-cat-name" type="text" placeholder="z.B. Finanzen">
+                            
+                            <label>Beschreibung</label>
+                            <input id="new-cat-desc" type="text" placeholder="Worum geht es?">
+
+                            <h3>Felder definieren</h3>
+                            <div id="field-list-container"></div>
+                            <button onclick="addFieldRow()" class="btn-small" style="margin-bottom:15px;">+ Feld hinzufügen</button>
+                            
+                            <hr>
+                            <button onclick="createCategory()" class="btn-blue">Kategorie Erstellen</button>
+                        </div>
+                    </div>
+
+                    <div id="view-reporting" class="view-section hidden">
+                        <header><h1>Auswertung</h1></header>
+                        <br>
+                        <div class="card">
+                            <canvas id="chart-balance" style="max-height: 400px;"></canvas>
+                        </div>
+                    </div>
+            </main>
+        </div>
 
     <script src="script.js"></script>
 </body>

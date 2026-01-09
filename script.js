@@ -197,13 +197,12 @@ async function loadData() {
     }
 
     if (foundCategory) {
-        console.log("✅ Kategorie wiedergefunden:", foundCategory.name);
         openCategory(foundCategory);
-    } else if (categories.length > 0) {
-        console.log("⚠️ Kategorie nicht gefunden, lade Erste:", categories[0].name);
-        openCategory(categories[0]);
+    } else {
+        switchTab('homepage');
     }
 }
+
 
 function renderSidebar() {
     const nav = document.getElementById('nav-container');
@@ -244,6 +243,7 @@ function openCategory(cat) {
     switchTab('generic');
     
     document.getElementById('gen-title').innerText = cat.name;
+    document.getElementById('gen-desc').innerText = cat.description;
     
     // Inputs bauen
     const container = document.getElementById('gen-inputs-container');
@@ -316,7 +316,7 @@ async function saveEntry() {
     if (!finalDate) {
         finalDate = toLocalISOString(new Date());
     };
-    
+
     // Payload bauen
     const payload = {
         category_id: currentCategory.id,
@@ -462,17 +462,33 @@ function addFieldRow() {
     const container = document.getElementById('field-list-container');
     const div = document.createElement('div');
     div.className = 'field-row';
-    div.style.cssText = "display:flex; gap:10px; margin-bottom:10px;";
     
+    // WICHTIG: align-items: stretch sorgt für gleiche Höhe
+    div.style.cssText = "display:flex; gap:10px; margin-bottom:10px; align-items:stretch;";
+    
+    // Style-Variable für Inputs/Selects (WICHTIG: box-sizing: border-box)
+    // Damit wird Padding nicht zur Höhe addiert, sondern ist inklusive.
+    const fieldStyle = "padding:10px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; height:42px;"; 
+
     div.innerHTML = `
-        <input type="text" class="f-label" placeholder="Feldname (z.B. Gewicht)" style="flex:2;">
-        <select class="f-type" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:6px;">
+        <input type="text" class="f-label" placeholder="Feldname (z.B. Gewicht)" 
+            style="flex:2; ${fieldStyle}">
+        
+        <select class="f-type" onchange="toggleUnit(this)" 
+                style="flex:1; ${fieldStyle} background-color:white;">
             <option value="number">Zahl</option>
             <option value="text">Text</option>
         </select>
-        <input type="text" class="f-unit" placeholder="Einheit (z.B. kg)" style="flex:1;">
-        <button onclick="this.parentElement.remove()" style="background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; width:40px;">X</button>
+        
+        <input type="text" class="f-unit" placeholder="Einheit (z.B. kg)" 
+            style="flex:1; ${fieldStyle}">
+        
+        <button onclick="this.closest('.field-row').remove()" 
+                style="background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; width:40px; padding:0; display:flex; justify-content:center; align-items:center; height:42px;">
+            X
+        </button>
     `;
+    
     container.appendChild(div);
 }
 
@@ -547,6 +563,30 @@ async function editCurrentCategory() {
     }
 }
 
+async function deleteCurrentCategory() {
+    if (!currentCategory) return;
+
+    const confirmMsg = `Möchtest du die Kategorie "${currentCategory.name}" und ALLE zugehörigen Einträge wirklich unwiderruflich löschen?`;
+    
+    if (!confirm(confirmMsg)) return;
+
+    // API Aufruf zum Löschen
+    const res = await apiFetch('/categories/' + currentCategory.id, {
+        method: 'DELETE'
+    });
+
+    if (res && res.ok) {
+        // Erfolg: Auswahl zurücksetzen und neu laden
+        currentCategory = null; 
+        alert("Kategorie gelöscht.");
+        await loadData(); 
+        // loadData() springt automatisch zur Homepage oder zur ersten verbleibenden Kategorie
+    } else {
+        alert("Fehler beim Löschen der Kategorie.");
+    }
+    loadData();
+}
+
 // ==========================================
 // Reporting & Charts
 // ==========================================
@@ -608,6 +648,16 @@ function switchTab(tabId) {
         renderReporting();
         document.getElementById('nav-reporting').classList.add('active');
         currentCategory = null;
+    } else if (tabId === 'homepage') {
+        const btn = document.getElementById('nav-homepage');
+        if(btn) btn.classList.add('active');
+        currentCategory = null;
+
+        // NEU: Benutzernamen in die Begrüßung einfügen
+        const nameElement = document.getElementById('home-user-name');
+        if (nameElement && currentUser) {
+            nameElement.innerText = currentUser;
+        }
     }
 }
 
