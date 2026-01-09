@@ -59,6 +59,16 @@ async function apiFetch(endpoint, options = {}) {
     }
 }
 
+// Hilfsfunktion: Datum in Format YYYY-MM-DDTHH:MM für Input-Feld umwandeln
+function toLocalISOString(dateObj) {
+    const pad = (n) => n < 10 ? '0' + n : n;
+    return dateObj.getFullYear() + '-' +
+        pad(dateObj.getMonth() + 1) + '-' +
+        pad(dateObj.getDate()) + 'T' +
+        pad(dateObj.getHours()) + ':' +
+        pad(dateObj.getMinutes());
+}
+
 // ==========================================
 // Auth: Login & Register
 // ==========================================
@@ -228,6 +238,8 @@ function openCategory(cat) {
     const btn = document.getElementById('btn-save-entry');
     if(btn) btn.innerText = "Speichern";
 
+    document.getElementById('entry-ts').value = toLocalISOString(new Date());
+
     currentCategory = cat;
     switchTab('generic');
     
@@ -296,13 +308,20 @@ async function saveEntry() {
     if (!hasContent) {
         alert("Bitte mindestens ein Feld ausfüllen.");
         return;
-    }
+    };
 
+    // NEU: Datum aus dem Feld lesen
+    const tsInput = document.getElementById('entry-ts').value;
+    let finalDate = tsInput;
+    if (!finalDate) {
+        finalDate = toLocalISOString(new Date());
+    };
+    
     // Payload bauen
     const payload = {
         category_id: currentCategory.id,
         // Wenn wir bearbeiten, nimm das alte Datum, sonst JETZT
-        occurred_at: editingEntryId ? editingEntryDate : new Date().toISOString(),
+        occurred_at: finalDate,
         note: document.getElementById('entry-note').value,
         values: values
     };
@@ -327,6 +346,9 @@ async function saveEntry() {
         // Reset Inputs & Mode
         inputs.forEach(i => i.value = '');
         document.getElementById('entry-note').value = '';
+
+        // NEU: Nach Speichern Datum wieder auf "Jetzt" setzen für den nächsten Eintrag
+        document.getElementById('entry-ts').value = toLocalISOString(new Date());
         
         // Modus zurücksetzen
         editingEntryId = null;
@@ -346,13 +368,18 @@ function startEditEntry(id) {
 
     // Globale Variablen setzen
     editingEntryId = entry.id;
-    editingEntryDate = entry.occurred_at; // Datum beibehalten!
 
     // Button Text ändern
     document.getElementById('btn-save-entry').innerText = "Ändern ✅";
 
     // Notiz füllen
     document.getElementById('entry-note').value = entry.note || '';
+
+    // NEU: Zeitpunkt in das Feld laden
+    if (entry.occurred_at) {
+        const dateObj = new Date(entry.occurred_at);
+        document.getElementById('entry-ts').value = toLocalISOString(dateObj);
+    }
 
     // Felder füllen
     const inputs = document.querySelectorAll('.gen-input');
