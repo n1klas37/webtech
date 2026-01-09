@@ -46,7 +46,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.commit()
     db.add(models.CategoryField(category_id=cat_fit.id, label="Übung", data_type="text"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Dauer", data_type="number", unit="Minuten"))
-    db.add(models.CategoryField(category_id=cat_fit.id, label="Strecke", data_type="number", unit="Meter"))
+    db.add(models.CategoryField(category_id=cat_fit.id, label="Strecke", data_type="number", unit="km"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Gewicht", data_type="number", unit="kg"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
 
@@ -55,7 +55,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(cat_fit)
     db.commit()
     db.add(models.CategoryField(category_id=cat_fit.id, label="Mahlzeit", data_type="text"))
-    db.add(models.CategoryField(category_id=cat_fit.id, label="Gewicht", data_type="number", unit="kg"))
+    db.add(models.CategoryField(category_id=cat_fit.id, label="Gewicht", data_type="number", unit="g"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
 
     # 3. Laune

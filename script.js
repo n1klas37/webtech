@@ -72,6 +72,7 @@ function toLocalISOString(dateObj) {
 // ==========================================
 // Auth: Login & Register
 // ==========================================
+
 let isRegisterMode = false;
 
 function toggleAuthMode() {
@@ -162,6 +163,85 @@ function logout() {
     currentUser = null;
     sessionStorage.clear();
     showLoginScreen();
+}
+
+// ==========================================
+// Benutzerverwaltung (Settings)
+// ==========================================
+
+async function loadUserProfile() {
+    // Daten vom Server holen (GET /user existiert in main.py)
+    const res = await apiFetch('/user');
+    if (res && res.ok) {
+        const user = await res.json();
+        
+        // Formularfelder füllen
+        document.getElementById('settings-name').value = user.name;
+        document.getElementById('settings-email').value = user.email;
+        document.getElementById('settings-password').value = ''; // Passwort aus Sicherheit leer lassen
+    }
+}
+
+async function saveUserProfile() {
+    const newName = document.getElementById('settings-name').value;
+    const newEmail = document.getElementById('settings-email').value;
+    const newPass = document.getElementById('settings-password').value;
+
+    if (!newName || !newEmail) {
+        alert("Name und E-Mail dürfen nicht leer sein.");
+        return;
+    }
+
+    // Payload für UserUpdate Schema bauen
+    const payload = {
+        name: newName,
+        email: newEmail
+    };
+    
+    // Nur wenn Passwortfeld ausgefüllt wurde, senden wir es mit
+    if (newPass && newPass.trim() !== "") {
+        payload.password = newPass;
+    }
+
+    const res = await apiFetch('/user', {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+    });
+
+    if (res && res.ok) {
+        const updatedUser = await res.json();
+        
+        // Session Storage & Anzeige aktualisieren
+        currentUser = updatedUser.name;
+        sessionStorage.setItem('lifeos_user', currentUser);
+        document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
+        
+        alert("Profil erfolgreich aktualisiert!");
+        document.getElementById('settings-password').value = ''; // Feld leeren
+    } else {
+        const err = await res.json();
+        alert("Fehler: " + (err.detail || "Konnte Profil nicht speichern"));
+    }
+}
+
+async function deleteUserAccount() {
+    const confirmName = prompt(`WARNUNG: Dies löscht deinen Account und ALLE Daten endgültig!\n\nBitte tippe deinen Benutzernamen ("${currentUser}") zur Bestätigung:`);
+
+    if (confirmName !== currentUser) {
+        alert("Abbruch: Name stimmte nicht überein.");
+        return;
+    }
+
+    const res = await apiFetch('/user', {
+        method: 'DELETE'
+    });
+
+    if (res && res.ok) {
+        alert("Account gelöscht. Auf Wiedersehen!");
+        logout();
+    } else {
+        alert("Fehler beim Löschen des Accounts.");
+    }
 }
 
 // ==========================================
@@ -297,13 +377,27 @@ async function saveEntry() {
     const values = {};
     let hasContent = false;
 
-    // Werte auslesen
-    inputs.forEach(input => {
-        if (input.value.trim() !== '') {
-            values[input.dataset.label] = input.value;
+    // --- NEU: Validierungsschleife ---
+    for (const input of inputs) {
+        const label = input.dataset.label;
+        
+        // 1. Prüfen auf Typ-Fehler (z.B. Text in einem Zahl-Feld)
+        // .badInput ist true, wenn der Browser Text im Feld hat, aber value="" liefert
+        if (input.validity && input.validity.badInput) {
+            alert(`Fehler im Feld "${label}": Der eingegebene Wert ist keine gültige Zahl!`);
+            input.focus(); // Cursor ins fehlerhafte Feld setzen
+            return; // Speichern abbrechen
+        }
+
+        const val = input.value.trim();
+
+        // 2. Wert übernehmen, wenn vorhanden
+        if (val !== '') {
+            values[label] = val;
             hasContent = true;
         }
-    });
+    }
+    // ---------------------------------
 
     if (!hasContent) {
         alert("Bitte mindestens ein Feld ausfüllen.");
@@ -416,8 +510,15 @@ function renderEntryList() {
         let detailsHtml = '';
         if (e.data) {
             for (const [key, val] of Object.entries(e.data)) {
+                // --- NEU: Einheit suchen ---
+                // Wir schauen in den Feldern der aktuellen Kategorie, ob es eines mit diesem Label gibt
+                const fieldDef = currentCategory.fields.find(f => f.label === key);
+                // Wenn Feld gefunden und Einheit existiert, dann nutzen, sonst leerer String
+                const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
+                // ---------------------------
+
                 detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:4px; font-size:0.85rem;">
-                    <b>${key}:</b> ${val}
+                    <b>${key}:</b> ${val}${unit}
                 </span> `;
             }
         }
@@ -641,13 +742,19 @@ function switchTab(tabId) {
     // Sidebar Reset
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
 
-    if (tabId === 'create-category') {
+    if (tabId === 'settings'){
+        loadUserProfile();
+        currentCategory = null;
+
+    }else if (tabId === 'create-category') {
         initCreateCategoryView();
         currentCategory = null;
+
     } else if (tabId === 'reporting') {
         renderReporting();
         document.getElementById('nav-reporting').classList.add('active');
         currentCategory = null;
+
     } else if (tabId === 'homepage') {
         const btn = document.getElementById('nav-homepage');
         if(btn) btn.classList.add('active');
