@@ -41,7 +41,7 @@ def verify_password(plain_password, hashed_password):
 
 def create_defaults_for_user(user_id: int, db: Session):
     # 1. Fitness
-    cat_fit = models.Category(user_id=user_id, name="Fitness", description="Training")
+    cat_fit = models.Category(user_id=user_id, name="🚴 Fitness", description="Training")
     db.add(cat_fit)
     db.commit()
     db.add(models.CategoryField(category_id=cat_fit.id, label="Übung", data_type="text"))
@@ -51,7 +51,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
 
     # 2. Ernährung
-    cat_fit = models.Category(user_id=user_id, name="Ernährung", description="Ernährung")
+    cat_fit = models.Category(user_id=user_id, name="🍎 Ernährung", description="Ernährung")
     db.add(cat_fit)
     db.commit()
     db.add(models.CategoryField(category_id=cat_fit.id, label="Lebensmittel", data_type="text"))
@@ -59,7 +59,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
 
     # 3. Laune
-    cat_diary = models.Category(user_id=user_id, name="Tagebuch", description="Gedanken")
+    cat_diary = models.Category(user_id=user_id, name="📖 Tagebuch", description="Gedanken")
     db.add(cat_diary)
     db.commit()
     db.add(models.CategoryField(category_id=cat_diary.id, label="Laune", data_type="number", unit="1-10"))
@@ -67,7 +67,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.commit()
 
     # 4. Schlaf
-    cat_diary = models.Category(user_id=user_id, name="Schlaf", description="Gedanken")
+    cat_diary = models.Category(user_id=user_id, name="💤 Schlaf", description="Gedanken")
     db.add(cat_diary)
     db.commit()
     db.add(models.CategoryField(category_id=cat_diary.id, label="Dauer", data_type="number", unit="Stunden"))

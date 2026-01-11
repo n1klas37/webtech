@@ -293,15 +293,8 @@ function renderSidebar() {
         btn.href = '#';
         btn.className = 'nav-item';
         btn.id = 'nav-cat-' + cat.id;
-        
-        // Icon basierend auf Name
-        let icon = '';
-        const n = cat.name.toLowerCase();
-        if(n.includes('fit') || n.includes('sport')) icon = '🏃';
-        if(n.includes('essen') || n.includes('ernährung')) icon = '🍎';
-        if(n.includes('tagebuch') || n.includes('gedanken')) icon = '📖';
 
-        btn.innerText = `${icon} ${cat.name}`;
+        btn.innerText = `${cat.name}`;
         btn.onclick = () => openCategory(cat);
         nav.appendChild(btn);
     });
@@ -517,7 +510,7 @@ function renderEntryList() {
                 const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
                 // ---------------------------
 
-                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:4px; font-size:0.85rem;">
+                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem;">
                     <b>${key}:</b> ${val}${unit}
                 </span> `;
             }
@@ -569,23 +562,22 @@ function addFieldRow() {
     
     // Style-Variable für Inputs/Selects (WICHTIG: box-sizing: border-box)
     // Damit wird Padding nicht zur Höhe addiert, sondern ist inklusive.
-    const fieldStyle = "padding:10px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box; height:42px;"; 
+    const fieldStyle = "padding:10px; border:1px solid #ddd; border-radius:8px; box-sizing:border-box; height:42px;"; 
 
     div.innerHTML = `
-        <input type="text" class="f-label" placeholder="Feldname (z.B. Gewicht)" 
+        <input type="text" class="f-label" placeholder="Feldname (z.B. Einnahmen)" 
             style="flex:2; ${fieldStyle}">
         
-        <select class="f-type" onchange="toggleUnit(this)" 
-                style="flex:1; ${fieldStyle} background-color:white;">
+        <select class="f-type" style="flex:1; ${fieldStyle} background-color:white;">
             <option value="number">Zahl</option>
             <option value="text">Text</option>
         </select>
         
-        <input type="text" class="f-unit" placeholder="Einheit (z.B. kg)" 
+        <input type="text" class="f-unit" placeholder="Einheit (z.B. €)" 
             style="flex:1; ${fieldStyle}">
         
         <button onclick="this.closest('.field-row').remove()" 
-                style="background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; width:40px; padding:0; display:flex; justify-content:center; align-items:center; height:42px;">
+                style="background:#ef4444; color:white; border:none; border-radius:8px; cursor:pointer; width:40px; padding:0; display:flex; justify-content:center; align-items:center; height:42px;">
             X
         </button>
     `;
@@ -721,7 +713,7 @@ function renderReporting() {
                 label: 'Anzahl Einträge',
                 data: Object.values(counts),
                 backgroundColor: '#3b82f6',
-                borderRadius: 4
+                borderRadius: 8
             }]
         },
         options: {
@@ -793,7 +785,7 @@ function renderSleepChart() {
                 label: 'Stunden',
                 data: dataPoints,
                 backgroundColor: '#a855f7',
-                borderRadius: 4
+                borderRadius: 8
             }]
         },
         options: {
@@ -862,7 +854,7 @@ function renderKcalChart() {
             datasets: [{
                 data: [kcalIn, kcalOut],
                 backgroundColor: ['#22c55e', '#3b82f6'],
-                borderRadius: 4
+                borderRadius: 8
             }]
         },
         options: {
@@ -923,12 +915,12 @@ function switchTab(tabId) {
 function renderNutritionWidget(container) {
     container.innerHTML = `
         <div style="background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:20px;">
-            <h4 style="margin-top:0; color:#166534;">🔍 Produktsuche (OpenFoodFacts)</h4>
+            <h4 style="margin-top:0; color:#166534;">Produktsuche (OpenFoodFacts)</h4>
             <div style="display:flex; gap:10px;">
-                <input id="api-search-input" type="text" placeholder="z.B. Apfel, Cola..." style="flex:1; margin:0;">
+                <input id="api-search-input" type="text" placeholder="z.B. Vollmilch, Salami..." style="flex:1; margin:0;">
                 <button onclick="runApiSearch()" class="btn-green" style="width:auto; margin:0;">Suchen</button>
             </div>
-            <p id="api-msg" style="margin:5px 0 0 0; font-size:0.85rem; color:#666;"></p>
+            <p id="api-msg" style="margin:5px 0 0 0; font-size:0.85rem; color:#666;">Hinweis: Die API ist nicht zuverlässig. Etwas rumprobieren ist empfehlenswert ;)</p>
         </div>
     `;
 }

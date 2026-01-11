@@ -1,193 +1,212 @@
-/* Variables and settings*/
-
-/* setting colors in :root*/
-:root{
-    --bg-dark: #1e293b;     /*darkblue for sidebar*/
-    --bg-light: #f3f4f6;    /*lightgrey for background*/
-    --text-main: #333;      /*dark grey for text*/
-    --text-light: #fff;     /*white for text on sidebar*/
-
-    /*colors for categories*/
-    --col-fitness: #3b82f6;   /*blue for ftiness*/
-    --col-nutrition: #22c55e; /*green for nutrition*/
-    --col-mood: #a855f7;      /*purple for moodtracker*/
-    --col-report: #eab308;    /*yellow for reporting*/
-    --col-delete: #ef4444;    /*red for deleting something*/
+/* =========================================
+   1. Variablen & Grundsetup (Technical Look)
+   ========================================= */
+:root {
+    --bg-body: #ffffff;
+    --bg-sidebar: #f8f9fa;
+    --border-color: #dee2e6;
+    
+    --text-main: #212529;
+    --text-muted: #6c757d;
+    
+    /* Funktionale Farben */
+    --col-primary: #0d6efd; /* Blau */
+    --col-success: #198754; /* Grün */
+    --col-danger: #dc3545;  /* Rot */
+    
+    /* Mapping für bestehende JS-Logik/Klassen */
+    --col-fitness: var(--col-primary);
+    --col-nutrition: var(--col-success);
+    --col-mood: #6610f2;
+    --col-delete: var(--col-danger);
 }
 
-*{box-sizing: border-box;}
+* { box-sizing: border-box; }
 
-/*main frame for website*/
-body{
-    font-family: Arial, Helvetica, sans-serif;
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
-    padding: 0;
-    background-color: var(--bg-light);
     color: var(--text-main);
+    background-color: var(--bg-body);
     height: 100vh;
     overflow: hidden;
 }
 
-#login-screen {
+/* =========================================
+   2. Layout
+   ========================================= */
+
+/* Hauptcontainer muss Flexbox sein für Sidebar + Inhalt */
+#app-screen {
+    display: flex;
     height: 100vh;
     width: 100vw;
-    display: flex;
-    justify-content: center;
-    align-items: center;
 }
 
-.login-card {
-    background: white;
-    padding: 40px;
-    border-radius: 12px;
-    width: 350px;
-}
-
-#app-screen {
-    display: flex; 
-    width: 100%; 
-    height: 100%;
-}
-
-/*configuring sidebar*/
-aside{
-    width: 250px;
-    background-color: var(--bg-dark);
-    color: var(--text-light);
+/* Sidebar */
+aside {
+    width: 260px;
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid var(--border-color);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    padding: 20px;
 }
 
-aside h2{
-    text-align: center;
-    padding-bottom: 20px;
+aside h2 {
+    font-size: 1.2rem;
+    color: var(--text-main);
     margin-top: 0;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border-color);
+    text-align: center;
 }
 
-/*links in the sidebar menu*/
-.nav-item{
-display: block;
-padding: 15px;
-color: #94a3b8;
-text-decoration: none;
-margin-bottom: 5px;
-border-radius: 6px;
-transition: 0.3s;
-border-left: 4px solid transparent;
+/* Der Container unten in der Sidebar (User & Logout) */
+aside > div:last-child {
+    margin-top: auto; /* Schiebt Inhalt nach unten */
+    border-top: 1px solid var(--border-color);
+    padding-top: 15px;
 }
 
-/*hover effect*/
-.nav-item:hover{
-    background-color: #334155;
-    color: white;
-}
-
-/*main frame on the right*/
-main{
+/* Hauptbereich */
+main {
     flex: 1;
     padding: 40px;
     overflow-y: auto;
+    background-color: white;
 }
 
-/*class for hiding tabs*/
-.hidden{display: none !important;}
+/* =========================================
+   3. Komponenten
+   ========================================= */
 
-/*box design with cards and grid*/
-.card{
-    background: white;
-    padding: 20px;
-    /*border-radius: 12px;*/
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
-}
-
-/*css-grid for 2 column design*/
-.grid-2{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-/*css-grid for 3 column design*/
-.grid-3{
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 20px
-}
-
-/*forms and buttons*/
-input, textarea{
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+/* Navigation */
+.nav-item {
     display: block;
-}
-
-button {
-    cursor: pointer;          /*hand curser*/
-    border: none;
-    padding: 12px 20px;
-    border-radius: 6px;
-    font-weight: bold;
-    color: white;
-    transition: 0.2s;
-    width: 100%;
-}
-
-button:hover {opacity: 0.9;}
-
-/*classes for button color*/
-.btn-blue { background-color: var(--col-fitness); }
-.btn-green { background-color: var(--col-nutrition); }
-.btn-purple { background-color: var(--col-mood); }
-.btn-red { background-color: var(--col-delete); margin-top: 20px;}
-
-/*delete button, but small*/
-.btn-small {
-    padding: 5px 10px;
-    font-size: 0.8rem;
-    width: auto;
-}
-
-
-/*tables*/
-table {
-    width: 100%;
-    border-collapse: collapse; 
-}
-th {
+    padding: 10px 15px;
+    color: var(--text-main);
+    text-decoration: none;
+    margin-bottom: 2px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    width: 100%; /* Für Buttons */
     text-align: left;
-    color: #888;
-    font-size: 0.8rem;
-    padding: 10px;
-    border-bottom: 1px solid #eee;
-}
-td {
-    padding: 10px;
-    border-bottom: 1px solid #eee;
+    background: transparent;
 }
 
+.nav-item:hover, .nav-item.active {
+    background-color: #e9ecef;
+    font-weight: 600;
+    color: var(--col-primary);
+    border-color: var(--border-color);
+}
 
-/*emojis for moodtracker*/
-.mood-container {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    font-size: 3rem;
+/* Cards */
+.card {
+    background: white;
+    border: 1px solid var(--border-color);
+    padding: 20px;
     margin-bottom: 20px;
+    border-radius: 4px;
 }
-.mood-btn {
-    background: none;
-    border: none;
-    font-size: 3rem;
+
+/* Inputs */
+input, select, textarea {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--col-primary);
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
+}
+
+/* Buttons */
+button {
     cursor: pointer;
-    opacity: 0.5;
-    transition: transform 0.2s;
+    border: 1px solid transparent;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 3px;
+    background-color: var(--col-primary);
+    color: white;
+    width: 100%; /* Standard volle Breite wie im Original */
 }
-/*hover effect fot emoji*/
-.mood-btn:hover, .mood-btn.selected {
-    opacity: 1;
+button:hover { opacity: 0.9; }
+
+.btn-blue { background-color: var(--col-primary); }
+.btn-green { background-color: var(--col-success); }
+.btn-red { background-color: var(--col-danger); }
+
+/* Kleine Buttons (z.B. Löschen/Editieren) */
+.btn-small { 
+    padding: 4px 8px; 
+    font-size: 0.8rem; 
+    width: auto; 
+    display: inline-block;
 }
+
+/* Tabellen */
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th { text-align: left; background: #f8f9fa; border-bottom: 2px solid var(--border-color); padding: 10px; font-weight: 600; }
+td { border-bottom: 1px solid var(--border-color); padding: 10px; }
+
+/* Charts begrenzen */
+canvas { max-height: 300px; width: 100%; }
+
+/* =========================================
+   4. Utility Klassen (Ersetzen Inline Styles)
+   ========================================= */
+.hidden { display: none !important; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+.text-center { text-align: center; }
+.mb-20 { margin-bottom: 20px; }
+.mt-15 { margin-top: 15px; }
+
+/* Header im Generic View (Titel links, Buttons rechts) */
+.flex-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+/* Flex Container für Titel & Icons */
+.title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Login Spezifisch */
+#login-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #e9ecef;
+    display: flex; justify-content: center; align-items: center; z-index: 10;
+}
+.login-card {
+    background: white; border: 1px solid var(--border-color);
+    padding: 40px; width: 350px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+/* Status Nachrichten */
+#auth-error { color: var(--col-danger); text-align: center; margin-bottom: 10px; font-size: 0.9rem;}
+#auth-success { color: var(--col-success); text-align: center; margin-bottom: 10px; font-size: 0.9rem;}
+
+/* Sidebar Spezifisch */
+#display-username { text-align: center; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px; }
+
+/* Logout Button Spezifisch */
+#btn-logout { background-color: rgba(220, 53, 69, 0.1); color: var(--col-danger); }
+#btn-logout:hover { background-color: var(--col-danger); color: white; }

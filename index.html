@@ -11,13 +11,13 @@
 
     <div id="login-screen">
         <div class="login-card">
-            <div style="text-align: center; margin-bottom: 20px;">
+            <div class="text-center mb-20">
                 <h2 id="auth-title">Willkommen im Life-OS</h2>
                 <p id="auth-subtitle">Bitte melde dich an.</p>
             </div>
 
-            <p id="auth-error" class="hidden" style="color: var(--col-delete); font-size: 0.9rem; text-align:center; margin-bottom:10px;"></p>
-            <p id="auth-success" class="hidden" style="color: var(--col-nutrition); font-size: 0.9rem; text-align:center; margin-bottom:10px;"></p>
+            <p id="auth-error" class="hidden"></p>
+            <p id="auth-success" class="hidden"></p>
 
             <label>Benutzername</label>
             <input type="text" id="username" placeholder="Dein Name">
@@ -33,9 +33,9 @@
             <button id="btn-login" onclick="handleLogin()" class="btn-blue">Einloggen</button>
             <button id="btn-register" onclick="handleRegister()" class="btn-green hidden">Kostenlos Registrieren</button>
             
-            <p style="margin-top: 15px; text-align: center; font-size: 0.9rem;">
+            <p class="mt-15 text-center" style="font-size: 0.9rem;">
                 <span id="txt-toggle">Noch kein Konto?</span>
-                <a href="#" onclick="toggleAuthMode()" id="link-toggle" style="color: var(--col-fitness); font-weight: bold;">Jetzt registrieren</a>
+                <a href="#" onclick="toggleAuthMode()" id="link-toggle" style="font-weight: bold; color: var(--col-fitness);">Jetzt registrieren</a>
             </p>
         </div>
     </div>
@@ -49,25 +49,24 @@
             </nav>
             <nav id="nav-container">
             </nav>
+
+            <button onclick="switchTab('create-category')" class="nav-item" style="color:var(--col-primary); border:1px dashed var(--col-primary); background:transparent;">+ Neue Kategorie</button>
+
             
-            <nav id="nav-container">
-                </nav>
-            
-            <hr style="border-color:#333; margin:10px 0; width:100%">
+            <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 10px 0;">
             
             <nav>
                  <a href="#" onclick="switchTab('reporting')" id="nav-reporting" class="nav-item">📊 Reporting</a>
-                 <button onclick="switchTab('create-category')" class="nav-item" style="color:#3b82f6; border:1px dashed #3b82f6; background:transparent;">+ Neue Kategorie</button>
             </nav>
             
-            <div style="margin-top:auto; border-top: 1px solid #334155; padding-top: 15px;">
-                <p id="display-username" style="text-align:center; font-size:0.9rem; color:#cbd5e1; margin-bottom: 10px;"></p>
+            <div>
+                <p id="display-username"></p>
                 
                 <button onclick="switchTab('settings')" class="nav-item" style="margin-bottom: 5px;">
                     Benutzerdaten ändern
                 </button>
                 
-                <button onclick="logout()" class="nav-item" style="background-color: rgba(239, 68, 68, 0.2); color: #fca5a5;">
+                <button onclick="logout()" id="btn-logout" class="nav-item">
                     Abmelden
                 </button>
             </div>
@@ -76,11 +75,11 @@
 
         <main>
             <div id="view-homepage" class="view-section hidden">
-                <header style="margin-bottom: 30px;">
+                <header class="mb-20">
                     <h1 style="font-size: 2.5rem; margin-bottom: 10px;">
                         Hallo, <span id="home-user-name">Nutzer</span>! 
                     </h1>
-                    <p style="color: #64748b; font-size: 1.1rem;">Willkommen zurück in deinem Life-OS.</p>
+                    <p style="color: var(--text-muted); font-size: 1.1rem;">Willkommen zurück in deinem Life-OS.</p>
                 </header>
 
                 <div class="grid-2">
@@ -92,23 +91,23 @@
                     <div class="card">
                         <h3>Auswertung</h3>
                         <p>Schau dir unter "Reporting" an, wie sich deine Daten entwickeln und behalte den Überblick.</p>
-                        <button onclick="switchTab('reporting')" class="btn-small btn-blue" style="margin-top:10px; width:auto;">Zum Reporting</button>
+                        <button onclick="switchTab('reporting')" class="btn-small btn-blue mt-15" style="width:auto;">Zum Reporting</button>
                     </div>
                 </div>
             </div>
 
             <div id="view-generic" class="view-section hidden">
-                <header style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <header class="flex-header">
                     <div>
-                        <div style="display:flex; align-items:center; gap: 10px;">
+                        <div class="title-group">
                             <h1 id="gen-title" style="margin:0;">Kategorie</h1>
                             
-                            <button onclick="editCurrentCategory()" title="Bearbeiten" class="btn-small" style="background:#64748b; width:auto;">⚙️</button>
+                            <button onclick="editCurrentCategory()" title="Bearbeiten" class="btn-small" style="background:var(--text-muted); width:auto;">⚙️</button>
                             
                             <button onclick="deleteCurrentCategory()" title="Kategorie Löschen" class="btn-small btn-red" style="width:auto; margin:0;">🗑️</button>
                         </div>
                         
-                        <p id="gen-desc" style="color:#666; margin-top:5px; margin-bottom:0; font-style:italic;"></p>
+                        <p id="gen-desc" style="color:var(--text-muted); margin-top:5px; margin-bottom:0; font-style:italic;"></p>
                     </div>
 
                 </header>
@@ -117,17 +116,17 @@
                             <div class="card">
                                 <h3>Eintragen</h3>
                                 
-                                <div id="special-widget-container" style="margin-bottom:20px;"></div>
+                                <div id="special-widget-container" class="mb-20"></div>
             
                                 <label style="font-weight: bold;">Zeitpunkt</label>
-                                <input type="datetime-local" id="entry-ts" style="margin-bottom: 15px;">
+                                <input type="datetime-local" id="entry-ts" class="mb-20">
 
                                 <div id="gen-inputs-container"></div>
 
-                                <label style="margin-top:15px;">Notiz (Optional)</label>
+                                <label class="mt-15">Notiz (Optional)</label>
                                 <input type="text" id="entry-note" placeholder="Kurze Notiz...">
 
-                                <button id="btn-save-entry" onclick="saveEntry()" class="btn-blue" style="margin-top:10px;">Speichern</button>
+                                <button id="btn-save-entry" onclick="saveEntry()" class="btn-blue mt-15">Speichern</button>
                             </div>
 
                             <div class="card">
@@ -159,30 +158,31 @@
 
                             <h3>Felder definieren</h3>
                             <div id="field-list-container"></div>
-                            <button onclick="addFieldRow()" class="btn-small" style="margin-bottom:15px;">+ Feld hinzufügen</button>
+                            <button onclick="addFieldRow()" class="btn-small mb-20">+ Feld hinzufügen</button>
                             
-                            <hr>
+                            <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
                             <button onclick="createCategory()" class="btn-blue">Kategorie Erstellen</button>
                         </div>
                     </div>
 
                     <div id="view-reporting" class="view-section hidden">
-                        <header><h1>Auswertung</h1></header>
+                        <header><h1>📊 Reporting</h1></header>
                         <br>
-                        <div class="card">
-                            <canvas id="chart-balance" style="max-height: 400px;"></canvas>
-                        </div>
 
                         <div class="grid-2" style="margin-top: 20px;">
                             <div class="card">
-                                <h3>💤 Schlaf (Letzte 5 Tage)</h3>
-                                <canvas id="chart-sleep" style="max-height: 250px;"></canvas>
+                                <h3>Schlaf (Letzte 5 Tage)</h3>
+                                <canvas id="chart-sleep"></canvas>
                             </div>
 
                             <div class="card">
-                                <h3>🔥 Kalorien Heute</h3>
-                                <canvas id="chart-kcal" style="max-height: 250px;"></canvas>
+                                <h3>Kalorien Heute</h3>
+                                <canvas id="chart-kcal"></canvas>
                             </div>
+                        </div>
+
+                        <div class="card">
+                            <canvas id="chart-balance"></canvas>
                         </div>
 
                     </div>
@@ -190,29 +190,30 @@
                     <div id="view-settings" class="view-section hidden">
                         <header>
                             <h1>Benutzerverwaltung</h1>
-                            <p style="color: #64748b;">Hier können Benutzerdaten bearbeitet oder gelöscht werden.</p>
+                            <p style="color: var(--text-muted);">Hier können Benutzerdaten bearbeitet oder gelöscht werden.</p>
                         </header>
                         <br>
+                        <div class="grid-2" style="margin-top: 20px;">
+                            <div class="card" style="max-width: 500px;">
+                                <h3>Profil bearbeiten</h3>
+                                
+                                <label>Benutzername</label>
+                                <input type="text" id="settings-name" placeholder="Neuer Name">
 
-                        <div class="card" style="max-width: 500px;">
-                            <h3>Profil bearbeiten</h3>
-                            
-                            <label>Benutzername</label>
-                            <input type="text" id="settings-name" placeholder="Neuer Name">
+                                <label>E-Mail Adresse</label>
+                                <input type="email" id="settings-email" placeholder="neue@email.de">
 
-                            <label>E-Mail Adresse</label>
-                            <input type="email" id="settings-email" placeholder="neue@email.de">
+                                <label>Neues Passwort (optional)</label>
+                                <input type="password" id="settings-password" placeholder="Leer lassen, wenn keine Änderung">
 
-                            <label>Neues Passwort (optional)</label>
-                            <input type="password" id="settings-password" placeholder="Leer lassen, wenn keine Änderung">
+                                <button onclick="saveUserProfile()" class="btn-blue">Änderungen speichern</button>
+                            </div>
 
-                            <button onclick="saveUserProfile()" class="btn-blue">Änderungen speichern</button>
-                        </div>
-
-                        <div class="card" style="max-width: 500px; border-left: 5px solid var(--col-delete);">
-                            <h3>Benutzer löschen</h3>
-                            <p>Hier kannst du deinen Benutzer unwiderruflich löschen. Alle Daten gehen verloren!</p>
-                            <button onclick="deleteUserAccount()" class="btn-red">Account löschen</button>
+                            <div class="card" style="max-width: 500px; border: 5px solid var(--col-delete);">
+                                <h3>Benutzer löschen</h3>
+                                <p>Hier kannst du deinen Benutzer unwiderruflich löschen. Alle Daten gehen verloren!</p>
+                                <button onclick="deleteUserAccount()" class="btn-red">Account löschen</button>
+                            </div>
                         </div>
                     </div>
             </main>
