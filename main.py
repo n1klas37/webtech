@@ -67,7 +67,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.commit()
 
     # 4. Schlaf
-    cat_diary = models.Category(user_id=user_id, name="💤 Schlaf", description="Gedanken")
+    cat_diary = models.Category(user_id=user_id, name="💤 Schlaf", description="Hier kannst du deinen Schlaf tracken.")
     db.add(cat_diary)
     db.commit()
     db.add(models.CategoryField(category_id=cat_diary.id, label="Dauer", data_type="number", unit="Stunden"))
