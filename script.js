@@ -692,6 +692,8 @@ async function deleteCurrentCategory() {
 // Reporting & Charts
 // ==========================================
 let myChart;
+let sleepChart;
+let kcalChart;
 
 function renderReporting() {
     const ctx = document.getElementById('chart-balance');
@@ -726,6 +728,155 @@ function renderReporting() {
             responsive: true,
             scales: {
                 y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+        }
+    });
+
+    renderKcalChart();
+    renderSleepChart();
+}
+
+// --- Chart 1: Schlafdauer (Letzte 5 Tage) ---
+// --- Chart 1: Schlafdauer (Letzte 5 Tage) ---
+function renderSleepChart() {
+    const ctx = document.getElementById('chart-sleep');
+    if (!ctx) return;
+
+    // 1. Kategorie "Schlaf" finden
+    const sleepCat = categories.find(c => c.name.toLowerCase().includes('schlaf'));
+    
+    const labels = [];
+    const dataPoints = [];
+    const today = new Date();
+
+    // Letzte 5 Tage durchlaufen
+    for (let i = 4; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0]; 
+        
+        // Label (z.B. "Mo, 12.05")
+        const label = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+        labels.push(label);
+
+        // Daten summieren
+        let hours = 0;
+        if (sleepCat) {
+            const daysEntries = entries.filter(e => 
+                e.category_id === sleepCat.id && 
+                e.occurred_at.startsWith(dateStr)
+            );
+            
+            daysEntries.forEach(e => {
+                for (const [key, val] of Object.entries(e.data || {})) {
+                    if (key.toLowerCase().includes('dauer')) {
+                        hours += parseFloat(val) || 0;
+                    }
+                }
+            });
+        }
+        dataPoints.push(hours);
+    }
+
+    // --- NEU: Durchschnitt berechnen ---
+    // Wir filtern 0-Werte NICHT heraus, da sie den Schnitt drücken (kein Schlaf eingetragen = schlecht)
+    const totalHours = dataPoints.reduce((a, b) => a + b, 0);
+    const avgHours = (totalHours / 5).toFixed(1); // Eine Nachkommastelle
+
+    if (sleepChart) sleepChart.destroy();
+
+    sleepChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Stunden',
+                data: dataPoints,
+                backgroundColor: '#a855f7',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true, suggestedMax: 8 } },
+            plugins: {
+                // Titel aktivieren und Durchschnitt anzeigen
+                title: {
+                    display: true,
+                    text: `Schlaf (Letzte 5 Tage) - Ø ${avgHours} Std.`,
+                    font: { size: 16 }
+                },
+                legend: { display: false } // Legende ausblenden, Titel reicht
+            }
+        }
+    });
+}
+
+// --- Chart 2: Kalorienbilanz (Heute) ---
+// --- Chart 2: Kalorienbilanz (Heute) ---
+function renderKcalChart() {
+    const ctx = document.getElementById('chart-kcal');
+    if (!ctx) return;
+
+    // Kategorien finden
+    const foodCat = categories.find(c => c.name.toLowerCase().includes('ernährung') || c.name.toLowerCase().includes('essen'));
+    const fitCat = categories.find(c => c.name.toLowerCase().includes('fitness') || c.name.toLowerCase().includes('sport'));
+
+    // Datum Heute
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Hilfsfunktion
+    const sumKcal = (cat) => {
+        if (!cat) return 0;
+        let sum = 0;
+        const relevantEntries = entries.filter(e => 
+            e.category_id === cat.id && 
+            e.occurred_at.startsWith(todayStr)
+        );
+        relevantEntries.forEach(e => {
+            for (const [key, val] of Object.entries(e.data || {})) {
+                const k = key.toLowerCase();
+                if (k.includes('energie') || k.includes('kcal') || k.includes('kalorien')) {
+                    sum += parseFloat(val) || 0;
+                }
+            }
+        });
+        return sum;
+    };
+
+    const kcalIn = sumKcal(foodCat);
+    const kcalOut = sumKcal(fitCat);
+
+    // --- NEU: Differenz berechnen ---
+    const balance = kcalIn - kcalOut;
+    // Text formatieren: +200 oder -150
+    const sign = balance > 0 ? '+' : ''; 
+    const balanceText = `${sign}${balance}`;
+
+    if (kcalChart) kcalChart.destroy();
+
+    kcalChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Eingenommen', 'Verbrannt'],
+            datasets: [{
+                data: [kcalIn, kcalOut],
+                backgroundColor: ['#22c55e', '#3b82f6'],
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            scales: { x: { beginAtZero: true } },
+            plugins: {
+                // Titel aktivieren und Bilanz anzeigen
+                title: {
+                    display: true,
+                    text: `Kalorien Heute (Bilanz: ${balanceText} kcal)`,
+                    font: { size: 16 }
+                },
+                legend: { display: false }
             }
         }
     });
@@ -796,18 +947,60 @@ async function runApiSearch() {
             const p = data.products[0];
             msg.innerText = `Gefunden: ${p.product_name}`;
             
-            // Auto-Fill
+            // Nährwerte holen (Energie in kcal)
+            const kcal100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'];
+            
+            let weightInput = null;
+            let energyInput = null;
+
+            // Inputs durchsuchen
             const inputs = document.querySelectorAll('.gen-input');
             inputs.forEach(input => {
                 const lbl = input.dataset.label.toLowerCase();
-                if(lbl.includes('kalorien') || lbl.includes('kcal')) {
-                    const k = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'];
-                    if(k) input.value = k;
+                
+                // 1. Name: Prüft auf "Lebensmittel" (dein Wunsch) oder "Mahlzeit" (Standard in main.py)
+                if(lbl.includes('lebensmittel') || lbl.includes('mahlzeit')) {
+                    input.value = p.product_name || "";
                 }
-                if(lbl.includes('produkt') || lbl.includes('name') || lbl.includes('essen')) {
-                    input.value = p.product_name;
+
+                // 2. Gewicht
+                if(lbl.includes('gewicht')) {
+                    weightInput = input;
+                }
+
+                // 3. Energie
+                if(lbl.includes('energie')) {
+                    energyInput = input;
                 }
             });
+
+            // Werte setzen und Berechnung starten
+            if(energyInput && kcal100) {
+                // Wir speichern den 100g-Basiswert am Element
+                energyInput.dataset.kcalPer100 = kcal100;
+
+                if(weightInput) {
+                    // Standard: 100g
+                    weightInput.value = 100;
+                    energyInput.value = kcal100; 
+
+                    // Event-Listener: Berechnet Energie neu, wenn Gewicht geändert wird
+                    weightInput.oninput = function() {
+                        const weight = parseFloat(this.value);
+                        const baseKcal = parseFloat(energyInput.dataset.kcalPer100);
+                        
+                        if(!isNaN(weight) && !isNaN(baseKcal)) {
+                            // Formel: (Gewicht / 100) * EnergiePro100
+                            const result = (weight / 100) * baseKcal;
+                            energyInput.value = Math.round(result);
+                        }
+                    };
+                } else {
+                    // Fallback, falls kein Gewichtsfeld da ist
+                    energyInput.value = kcal100;
+                }
+            }
+
         } else {
             msg.innerText = "Nichts gefunden.";
         }
