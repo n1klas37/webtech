@@ -179,7 +179,7 @@ def delete_user_account(db: Session = Depends(get_db), current_user: models.User
 
 @app.get("/categories/", response_model=List[schemas.CategoryOut])
 def get_categories(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    return db.query(models.Category).filter(models.Category.user_id == user.id).all()
+    return db.query(models.Category).filter(models.Category.user_id == user.id).order_by(models.Category.id).all()
 
 
 @app.post("/categories/", response_model=schemas.CategoryOut)
