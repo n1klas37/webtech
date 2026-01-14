@@ -1,20 +1,30 @@
-// =================================
-// Konfiguration and global variables
-// =================================
-// set API_BASE to "" for same origin as the frontend
-const API_BASE = ""; 
+/*=================================
+*Konfiguration and global variables
+*==================================
+*/
 
+// Set API_BASE to "" for same origin as the frontend
+const API_BASE = ""; 
 let authToken = sessionStorage.getItem('lifeos_token');
 let currentUser = sessionStorage.getItem('lifeos_user');
+
+// Data-Cache
 let categories = [];
 let entries = [];
+
+// UI State
 let currentCategory = null;
 let editingEntryId = null;   // saves the entry_id being edited
 let editingEntryDate = null; // saves the original date of the entry being edited
 
-// ==========================================
-// Initialization
-// ==========================================
+// Chart Instances
+let countChart;
+let sleepChart;
+let kcalChart;
+
+/*==============================
+Initialization and Start of App
+==============================*/
 document.addEventListener('DOMContentLoaded', () => {
     if (authToken && currentUser) {
         showAppScreen();
@@ -24,18 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Show login or app screen
-function showLoginScreen() {
-    document.getElementById('login-screen').classList.remove('hidden');
-    document.getElementById('app-screen').classList.add('hidden');
-}
-
-function showAppScreen() {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app-screen').classList.remove('hidden');
-    document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
-}
-
+/*==============================
+* API and Helper Functions
+*==============================*/
 // Centralized API fetch function with auth handling
 async function apiFetch(endpoint, options = {}) {
     if (!options.headers) options.headers = {};
@@ -70,11 +71,22 @@ function toLocalISOString(dateObj) {
         pad(dateObj.getMinutes());
 }
 
-// ==========================================
-// Auth: Login, Logout & Register
-// ==========================================
-
+/*============================================
+* Authentication (Login, Registration, Logout)
+*============================================*/
 let isRegisterMode = false;
+
+// Show login or app screen
+function showLoginScreen() {
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('app-screen').classList.add('hidden');
+}
+
+function showAppScreen() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+    document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
+}
 
 function toggleAuthMode() {
     isRegisterMode = !isRegisterMode;
@@ -195,102 +207,9 @@ function logout() {
     showLoginScreen();
 }
 
-// ==========================================
-// User Profile Load, Save & Delete
-// ==========================================
-
-async function loadUserProfile() {
-    // Fetch user data from backend
-    const res = await apiFetch('/user');
-    if (res && res.ok) {
-        const user = await res.json();
-        
-        // Fill in the form
-        document.getElementById('settings-name').value = user.name;
-        document.getElementById('settings-email').value = user.email;
-        document.getElementById('settings-password').value = ''; // leave password empty for security reasons
-    }
-}
-
-// Update user profile 
-async function saveUserProfile() {
-    const newName = document.getElementById('settings-name').value;
-    const newEmail = document.getElementById('settings-email').value;
-    const newPass = document.getElementById('settings-password').value;
-    const newPassConfirm = document.getElementById('settings-password-confirm').value;
-
-    if (!newName || !newEmail) {
-        alert("Name und E-Mail dürfen nicht leer sein.");
-        return;
-    }
-
-    if (newPass && newPass !== "") {
-        if (newPass !== newPassConfirm) {
-            alert("Die neuen Passwörter stimmen nicht überein.");
-            return; // Abbruch
-        }
-    }
-
-    // Build payload for user update schema
-    const payload = {
-        name: newName,
-        email: newEmail
-    };
-    
-    // Send password only if changed
-    if (newPass && newPass.trim() !== "") {
-        payload.password = newPass;
-    }
-
-    const res = await apiFetch('/user', {
-        method: 'PUT',
-        body: JSON.stringify(payload)
-    });
-
-    if (res && res.ok) {
-        const updatedUser = await res.json();
-        
-        // Update currentUser if name changed
-        currentUser = updatedUser.name;
-        // Set session storage
-        sessionStorage.setItem('lifeos_user', currentUser);
-        //Update displayed username
-        document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
-        
-        alert("Profil erfolgreich aktualisiert!");
-        document.getElementById('settings-password').value = '';
-        document.getElementById('settings-password-confirm').value = '';
-        
-    } else {
-        const err = await res.json();
-        alert("Fehler: " + (err.detail || "Konnte Profil nicht speichern"));
-    }
-}
-
-// DELETE user account
-async function deleteUserAccount() {
-    const confirmName = prompt(`WARNUNG: Dies löscht deinen Account und ALLE Daten endgültig!\n\nBitte tippe deinen Benutzernamen ("${currentUser}") zur Bestätigung:`);
-
-    if (confirmName !== currentUser) {
-        alert("Abbruch: Name stimmte nicht überein.");
-        return;
-    }
-
-    const res = await apiFetch('/user', {
-        method: 'DELETE'
-    });
-
-    if (res && res.ok) {
-        alert("Account gelöscht. Auf Wiedersehen!");
-        logout();
-    } else {
-        alert("Fehler beim Löschen des Accounts.");
-    }
-}
-
-// ==================================================
-// Load Data: Categories & Entries and render Sidebar
-// ==================================================
+/*==============================
+* Data Loading and Navigation
+*==============================*/
 async function loadData() {
     // Save current category ID to restore view later
     const savedId = currentCategory ? String(currentCategory.id) : null;
@@ -344,249 +263,43 @@ function renderSidebar() {
     });
 }
 
-// Open a category view
-function openCategory(cat) {
-    // RESET Edit Mode
-    editingEntryId = null;
-    editingEntryDate = null;
-    const btn = document.getElementById('btn-save-entry');
-    if(btn) btn.innerText = "Speichern";
+function switchTab(tabId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+    const target = document.getElementById('view-' + tabId);
+    if (target) target.classList.remove('hidden');
 
-    document.getElementById('entry-ts').value = toLocalISOString(new Date());
-
-    currentCategory = cat;
-    switchTab('generic');
-    
-    document.getElementById('gen-title').innerText = cat.name;
-    document.getElementById('gen-desc').innerText = cat.description;
-    
-    // Render input fields
-    const container = document.getElementById('gen-inputs-container');
-    container.innerHTML = '';
-    document.getElementById('entry-note').value = ''; // Reset note field
-
-    // Show OpenFoodFacts API widget for "ernährung" category
-    const widgetContainer = document.getElementById('special-widget-container');
-    widgetContainer.innerHTML = '';
-    if(cat.name.toLowerCase().includes('ernährung')) {
-        renderNutritionWidget(widgetContainer);
-    }
-
-    // Dynamically create input fields based on category definition
-    if(cat.fields && cat.fields.length > 0) {
-        cat.fields.forEach(field => {
-            const wrapper = document.createElement('div');
-            wrapper.style.marginBottom = '15px';
-            
-            const label = document.createElement('label');
-            label.innerText = field.unit ? `${field.label} (${field.unit})` : field.label;
-            label.style.display = 'block';
-            label.style.fontWeight = 'bold';
-            
-            const input = document.createElement('input');
-            input.type = field.data_type === 'number' ? 'number' : 'text';
-            input.className = 'gen-input'; 
-            input.dataset.label = field.label;
-            input.placeholder = field.label;
-            
-            wrapper.appendChild(label);
-            wrapper.appendChild(input);
-            container.appendChild(wrapper);
-        });
-    } else {
-        container.innerHTML = '<p style="color:#888;">Keine Felder definiert.</p>';
-    }
-
-    renderEntryList();
-
-    // Show active category in sidebar as active
+    // Sidebar Reset
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const activeBtn = document.getElementById('nav-cat-' + cat.id);
-    if(activeBtn) activeBtn.classList.add('active');
-}
 
-async function saveEntry() {
-    if (!currentCategory) return;
+    if (tabId === 'settings'){
+        loadUserProfile();
+        currentCategory = null;
 
-    const inputs = document.querySelectorAll('.gen-input');
-    const values = {};
-    let hasContent = false;
+    }else if (tabId === 'create-category') {
+        initCreateCategoryView();
+        currentCategory = null;
 
-    // Input validation for correct data type
-    for (const input of inputs) {
-        const label = input.dataset.label;
-        
-        // input.validity.badInput is true if there is a type mismatch (e.g., non-number in number field)
-        if (input.validity && input.validity.badInput) {
-            alert(`Fehler im Feld "${label}": Der eingegebene Wert ist keine gültige Zahl!`);
-            input.focus(); // set focus to the invalid input
-            return; // abort saving
-        }
+    } else if (tabId === 'reporting') {
+        renderReporting();
+        document.getElementById('nav-reporting').classList.add('active');
+        currentCategory = null;
 
-        const val = input.value.trim();
+    } else if (tabId === 'homepage') {
+        const btn = document.getElementById('nav-homepage');
+        if(btn) btn.classList.add('active');
+        currentCategory = null;
 
-        // Only include non-empty values
-        if (val !== '') {
-            values[label] = val;
-            hasContent = true;
+        //Show username on homepage
+        const nameElement = document.getElementById('home-user-name');
+        if (nameElement && currentUser) {
+            nameElement.innerText = currentUser;
         }
     }
-
-    if (!hasContent) {
-        alert("Bitte mindestens ein Feld ausfüllen.");
-        return;
-    };
-
-    // Leave timestamp as it is if editing, else set to now
-    const tsInput = document.getElementById('entry-ts').value;
-    let finalDate = tsInput;
-    if (!finalDate) {
-        finalDate = toLocalISOString(new Date());
-    };
-
-    // Build payload for backend
-    const payload = {
-        category_id: currentCategory.id,
-        occurred_at: finalDate,
-        note: document.getElementById('entry-note').value,
-        values: values
-    };
-
-    let res;
-    
-    // Differentiate between CREATE and UPDATE
-    if (editingEntryId) {
-        // UPDATE (PUT)
-        res = await apiFetch('/entries/' + editingEntryId, {
-            method: 'PUT',
-            body: JSON.stringify(payload)
-        });
-    } else {
-        // CREATE (POST)
-        res = await apiFetch('/entries/', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-    }
-
-    if (res && res.ok) {
-        // Reset Inputs & Mode if saved successfully
-        inputs.forEach(i => i.value = '');
-        document.getElementById('entry-note').value = '';
-
-        // Set timestamp to now for new entries
-        document.getElementById('entry-ts').value = toLocalISOString(new Date());
-        
-        // Reset edit mode
-        editingEntryId = null;
-        editingEntryDate = null;
-        document.getElementById('btn-save-entry').innerText = "Speichern";
-
-        await loadData(); // Reload data to see changes
-    } else {
-        alert("Fehler beim Speichern.");
-    }
 }
 
-function startEditEntry(id) {
-    // Search for the entry by ID in the local entries array
-    const entry = entries.find(e => e.id === id);
-    if (!entry) return;
-
-    // Set global editingEntryId
-    editingEntryId = entry.id;
-
-    // Change button text to show edit mode
-    document.getElementById('btn-save-entry').innerText = "Ändern ✅";
-
-    // Load note
-    document.getElementById('entry-note').value = entry.note || '';
-
-    // Set timestamp as the entry's occurred_at
-    if (entry.occurred_at) {
-        const dateObj = new Date(entry.occurred_at);
-        document.getElementById('entry-ts').value = toLocalISOString(dateObj);
-    }
-
-    // Fill in input fields with existing data
-    const inputs = document.querySelectorAll('.gen-input');
-    inputs.forEach(input => {
-        const label = input.dataset.label;
-        // Wenn der Eintrag Daten für dieses Label hat, einfügen
-        if (entry.data && entry.data[label] !== undefined) {
-            input.value = entry.data[label];
-        } else {
-            input.value = '';
-        }
-    });
-    
-    // Scroll to inputs
-    document.getElementById('gen-inputs-container').scrollIntoView({behavior: 'smooth'});
-}
-
-// Render the list of entries for the current category
-function renderEntryList() {
-    const tbody = document.getElementById('list-generic');
-    
-    // Read limit from input dropdown
-    const limitInput = document.getElementById('entry-limit');
-    // Fallback to 10 if not found
-    const limit = limitInput ? parseInt(limitInput.value) : 10;
-
-    // Only show entries of the current category
-    const catEntries = entries.filter(e => e.category_id === currentCategory.id);
-
-    // Sort by occurred_at descending and slice at limit
-    const displayedEntries = catEntries.slice(0, limit);
-
-    tbody.innerHTML = displayedEntries.map(e => {
-        // e.data is an object with key-value pairs
-        let detailsHtml = '';
-        if (e.data) {
-            for (const [key, val] of Object.entries(e.data)) {
-                // Search for field definition in current category to get unit
-                const fieldDef = currentCategory.fields.find(f => f.label === key);
-                // If fieldDef has unit, append it, if not, leave empty
-                const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
-
-                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem;">
-                    <b>${key}:</b> ${val}${unit}
-                </span> `;
-            }
-        }
-
-        // Format occurred_at date to local time
-        const date = new Date(e.occurred_at);
-        const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-        return `
-        <tr>
-            <td>${detailsHtml}</td>
-            <td style="font-style:italic; color:#666;">${e.note || '-'}</td>
-            <td style="font-size:0.8rem;">${timeStr}</td>
-            <td>
-                <button onclick="startEditEntry(${e.id})" class="btn-small btn-blue" style="margin:0; margin-bottom:5px;">✏️</button>
-                <button onclick="deleteEntry(${e.id})" class="btn-small btn-red" style="margin:0;">🗑️</button>
-            </td>
-        </tr>
-    `;
-    }).join('');
-}
-
-
-// DELETE an entry by ID
-async function deleteEntry(id) {
-    if(!confirm("Eintrag wirklich löschen?")) return;
-    
-    const res = await apiFetch('/entries/' + id, { method: 'DELETE' });
-    if(res && res.ok) {
-        await loadData();
-    }
-}
-
-// ==========================================
-// Category Creation, Editing & Deletion
-// ==========================================
+/*=============================
+* Category Management
+*==============================*/
 function initCreateCategoryView() {
     document.getElementById('new-cat-name').value = '';
     document.getElementById('new-cat-desc').value = '';
@@ -720,10 +433,342 @@ async function deleteCurrentCategory() {
     loadData();
 }
 
-// Reporting and Charts
-let myChart;
-let sleepChart;
-let kcalChart;
+/*=============================
+* Entry Management
+*==============================*/
+// Open a category view to show entries
+function openCategory(cat) {
+    // RESET Edit Mode
+    editingEntryId = null;
+    editingEntryDate = null;
+    const btn = document.getElementById('btn-save-entry');
+    if(btn) btn.innerText = "Speichern";
+
+    document.getElementById('entry-ts').value = toLocalISOString(new Date());
+
+    currentCategory = cat;
+    switchTab('generic');
+    
+    document.getElementById('gen-title').innerText = cat.name;
+    document.getElementById('gen-desc').innerText = cat.description;
+    
+    // Render input fields
+    const container = document.getElementById('gen-inputs-container');
+    container.innerHTML = '';
+    document.getElementById('entry-note').value = ''; // Reset note field
+
+    // Show OpenFoodFacts API widget for "ernährung" category
+    const widgetContainer = document.getElementById('special-widget-container');
+    widgetContainer.innerHTML = '';
+    if(cat.name.toLowerCase().includes('ernährung')) {
+        renderNutritionWidget(widgetContainer);
+    }
+
+    // Dynamically create input fields based on category definition
+    if(cat.fields && cat.fields.length > 0) {
+        cat.fields.forEach(field => {
+            const wrapper = document.createElement('div');
+            wrapper.style.marginBottom = '15px';
+            
+            const label = document.createElement('label');
+            label.innerText = field.unit ? `${field.label} (${field.unit})` : field.label;
+            label.style.display = 'block';
+            label.style.fontWeight = 'bold';
+            
+            const input = document.createElement('input');
+            input.type = field.data_type === 'number' ? 'number' : 'text';
+            input.className = 'gen-input'; 
+            input.dataset.label = field.label;
+            input.placeholder = field.label;
+            
+            wrapper.appendChild(label);
+            wrapper.appendChild(input);
+            container.appendChild(wrapper);
+        });
+    } else {
+        container.innerHTML = '<p style="color:#888;">Keine Felder definiert.</p>';
+    }
+
+    renderEntryList();
+
+    // Show active category in sidebar as active
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const activeBtn = document.getElementById('nav-cat-' + cat.id);
+    if(activeBtn) activeBtn.classList.add('active');
+}
+
+// Show nutrition widget for food category
+function renderNutritionWidget(container) {
+    container.innerHTML = `
+        <div style="background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:20px;">
+            <h4 style="margin-top:0; color:#166534;">Produktsuche (OpenFoodFacts)</h4>
+            <div style="display:flex; gap:10px;">
+                <input id="api-search-input" type="text" placeholder="z.B. Vollmilch, Salami..." style="flex:1; margin:0;">
+                <button onclick="runApiSearch()" class="btn-green" style="width:auto; margin:0;">Suchen</button>
+            </div>
+            <p id="api-msg" style="margin:5px 0 0 0; font-size:0.85rem; color:#666;">Hinweis: Die API ist nicht zuverlässig. Etwas rumprobieren ist empfehlenswert ;)</p>
+        </div>
+    `;
+}
+
+// Run OpenFoodFacts API search
+async function runApiSearch() {
+    const q = document.getElementById('api-search-input').value;
+    const msg = document.getElementById('api-msg');
+    if(!q) return;
+    msg.innerText = "Suche...";
+    
+    try {
+        const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=1`);
+        const data = await res.json();
+
+        if(data.products && data.products.length > 0) {
+            const p = data.products[0];
+            msg.innerText = `Gefunden: ${p.product_name}`;
+            
+            // Get kcal per 100g
+            const kcal100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'];
+            
+            let weightInput = null;
+            let energyInput = null;
+
+            // Find inputs
+            const inputs = document.querySelectorAll('.gen-input');
+            inputs.forEach(input => {
+                const lbl = input.dataset.label.toLowerCase();
+                
+                // Product Name
+                if(lbl.includes('lebensmittel')) {
+                    input.value = p.product_name || "";
+                }
+
+                // Weight
+                if(lbl.includes('gewicht')) {
+                    weightInput = input;
+                }
+
+                // Energy / Calories
+                if(lbl.includes('energie')) {
+                    energyInput = input;
+                }
+            });
+
+            // Set values and calculate based on weight
+            if(energyInput && kcal100) {
+                // Store kcal per 100g in dataset for later calculations
+                energyInput.dataset.kcalPer100 = kcal100;
+
+                if(weightInput) {
+                    // Standard: 100g
+                    weightInput.value = 100;
+                    energyInput.value = kcal100; 
+
+                    // Event-Listener: calculate kcal based on weight when changed
+                    weightInput.oninput = function() {
+                        const weight = parseFloat(this.value);
+                        const baseKcal = parseFloat(energyInput.dataset.kcalPer100);
+                        
+                        if(!isNaN(weight) && !isNaN(baseKcal)) {
+                            const result = (weight / 100) * baseKcal;
+                            energyInput.value = Math.round(result);
+                        }
+                    };
+                } else {
+                    // If no weight input, just set kcal per 100g
+                    energyInput.value = kcal100;
+                }
+            }
+        // If no products were found
+        } else {
+            msg.innerText = "Nichts gefunden.";
+        }
+    } catch(e) {
+        console.error(e);
+        msg.innerText = "Fehler bei der API-Suche.";
+    }
+}
+
+async function saveEntry() {
+    if (!currentCategory) return;
+
+    const inputs = document.querySelectorAll('.gen-input');
+    const values = {};
+    let hasContent = false;
+
+    // Input validation for correct data type
+    for (const input of inputs) {
+        const label = input.dataset.label;
+        
+        // input.validity.badInput is true if there is a type mismatch (e.g., non-number in number field)
+        if (input.validity && input.validity.badInput) {
+            alert(`Fehler im Feld "${label}": Der eingegebene Wert ist keine gültige Zahl!`);
+            input.focus(); // set focus to the invalid input
+            return; // abort saving
+        }
+
+        const val = input.value.trim();
+
+        // Only include non-empty values
+        if (val !== '') {
+            values[label] = val;
+            hasContent = true;
+        }
+    }
+
+    if (!hasContent) {
+        alert("Bitte mindestens ein Feld ausfüllen.");
+        return;
+    };
+
+    // Leave timestamp as it is if editing, else set to now
+    const tsInput = document.getElementById('entry-ts').value;
+    let finalDate = tsInput;
+    if (!finalDate) {
+        finalDate = toLocalISOString(new Date());
+    };
+
+    // Build payload for backend
+    const payload = {
+        category_id: currentCategory.id,
+        occurred_at: finalDate,
+        note: document.getElementById('entry-note').value,
+        values: values
+    };
+
+    let res;
+    
+    // Differentiate between CREATE and UPDATE
+    if (editingEntryId) {
+        // UPDATE (PUT)
+        res = await apiFetch('/entries/' + editingEntryId, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+    } else {
+        // CREATE (POST)
+        res = await apiFetch('/entries/', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    }
+
+    if (res && res.ok) {
+        // Reset Inputs & Mode if saved successfully
+        inputs.forEach(i => i.value = '');
+        document.getElementById('entry-note').value = '';
+
+        // Set timestamp to now for new entries
+        document.getElementById('entry-ts').value = toLocalISOString(new Date());
+        
+        // Reset edit mode
+        editingEntryId = null;
+        editingEntryDate = null;
+        document.getElementById('btn-save-entry').innerText = "Speichern";
+
+        await loadData(); // Reload data to see changes
+    } else {
+        alert("Fehler beim Speichern.");
+    }
+}
+
+function startEditEntry(id) {
+    // Search for the entry by ID in the local entries array
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+
+    // Set global editingEntryId
+    editingEntryId = entry.id;
+
+    // Change button text to show edit mode
+    document.getElementById('btn-save-entry').innerText = "Ändern ✅";
+
+    // Load note
+    document.getElementById('entry-note').value = entry.note || '';
+
+    // Set timestamp as the entry's occurred_at
+    if (entry.occurred_at) {
+        const dateObj = new Date(entry.occurred_at);
+        document.getElementById('entry-ts').value = toLocalISOString(dateObj);
+    }
+
+    // Fill in input fields with existing data
+    const inputs = document.querySelectorAll('.gen-input');
+    inputs.forEach(input => {
+        const label = input.dataset.label;
+        // Wenn der Eintrag Daten für dieses Label hat, einfügen
+        if (entry.data && entry.data[label] !== undefined) {
+            input.value = entry.data[label];
+        } else {
+            input.value = '';
+        }
+    });
+    
+    // Scroll to inputs
+    document.getElementById('gen-inputs-container').scrollIntoView({behavior: 'smooth'});
+}
+
+// DELETE an entry by ID
+async function deleteEntry(id) {
+    if(!confirm("Eintrag wirklich löschen?")) return;
+    
+    const res = await apiFetch('/entries/' + id, { method: 'DELETE' });
+    if(res && res.ok) {
+        await loadData();
+    }
+}
+
+// Render the list of entries for the current category
+function renderEntryList() {
+    const tbody = document.getElementById('list-generic');
+    
+    // Read limit from input dropdown
+    const limitInput = document.getElementById('entry-limit');
+    // Fallback to 10 if not found
+    const limit = limitInput ? parseInt(limitInput.value) : 10;
+
+    // Only show entries of the current category
+    const catEntries = entries.filter(e => e.category_id === currentCategory.id);
+
+    // Sort by occurred_at descending and slice at limit
+    const displayedEntries = catEntries.slice(0, limit);
+
+    tbody.innerHTML = displayedEntries.map(e => {
+        // e.data is an object with key-value pairs
+        let detailsHtml = '';
+        if (e.data) {
+            for (const [key, val] of Object.entries(e.data)) {
+                // Search for field definition in current category to get unit
+                const fieldDef = currentCategory.fields.find(f => f.label === key);
+                // If fieldDef has unit, append it, if not, leave empty
+                const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
+
+                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem;">
+                    <b>${key}:</b> ${val}${unit}
+                </span> `;
+            }
+        }
+
+        // Format occurred_at date to local time
+        const date = new Date(e.occurred_at);
+        const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+        return `
+        <tr>
+            <td>${detailsHtml}</td>
+            <td style="font-style:italic; color:#666;">${e.note || '-'}</td>
+            <td style="font-size:0.8rem;">${timeStr}</td>
+            <td>
+                <button onclick="startEditEntry(${e.id})" class="btn-small btn-blue" style="margin:0; margin-bottom:5px;">✏️</button>
+                <button onclick="deleteEntry(${e.id})" class="btn-small btn-red" style="margin:0;">🗑️</button>
+            </td>
+        </tr>
+    `;
+    }).join('');
+}
+
+/*=============================
+* Reporting and Charts
+*==============================*/
 
 function renderReporting() {
     
@@ -732,7 +777,7 @@ function renderReporting() {
     renderSleepChart();
 }
 
-// Chart 1: Sleeping hours past 5 days ---
+// Chart 1: Sleeping hours past 5 days
 function renderSleepChart() {
     const ctx = document.getElementById('chart-sleep');
     if (!ctx) return;
@@ -806,7 +851,7 @@ function renderSleepChart() {
 }
 
 
-// Chart 2: Calorie balance today ---
+// Chart 2: Calorie balance today
 function renderKcalChart() {
     const ctx = document.getElementById('chart-kcal');
     if (!ctx) return;
@@ -914,130 +959,94 @@ const ctx = document.getElementById('chart-balance');
     });
 }
 
-
-// ==========================================
-// Navigation and extras
-// ==========================================
-function switchTab(tabId) {
-    document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-    const target = document.getElementById('view-' + tabId);
-    if (target) target.classList.remove('hidden');
-
-    // Sidebar Reset
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-
-    if (tabId === 'settings'){
-        loadUserProfile();
-        currentCategory = null;
-
-    }else if (tabId === 'create-category') {
-        initCreateCategoryView();
-        currentCategory = null;
-
-    } else if (tabId === 'reporting') {
-        renderReporting();
-        document.getElementById('nav-reporting').classList.add('active');
-        currentCategory = null;
-
-    } else if (tabId === 'homepage') {
-        const btn = document.getElementById('nav-homepage');
-        if(btn) btn.classList.add('active');
-        currentCategory = null;
-
-        //Show username on homepage
-        const nameElement = document.getElementById('home-user-name');
-        if (nameElement && currentUser) {
-            nameElement.innerText = currentUser;
-        }
+/*=============================
+* User Settings
+*==============================*/
+async function loadUserAccount() {
+    // Fetch user data from backend
+    const res = await apiFetch('/user');
+    if (res && res.ok) {
+        const user = await res.json();
+        
+        // Fill in the form
+        document.getElementById('settings-name').value = user.name;
+        document.getElementById('settings-email').value = user.email;
+        document.getElementById('settings-password').value = ''; // leave password empty for security reasons
     }
 }
 
-// Show nutrition widget for food category
-function renderNutritionWidget(container) {
-    container.innerHTML = `
-        <div style="background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:20px;">
-            <h4 style="margin-top:0; color:#166534;">Produktsuche (OpenFoodFacts)</h4>
-            <div style="display:flex; gap:10px;">
-                <input id="api-search-input" type="text" placeholder="z.B. Vollmilch, Salami..." style="flex:1; margin:0;">
-                <button onclick="runApiSearch()" class="btn-green" style="width:auto; margin:0;">Suchen</button>
-            </div>
-            <p id="api-msg" style="margin:5px 0 0 0; font-size:0.85rem; color:#666;">Hinweis: Die API ist nicht zuverlässig. Etwas rumprobieren ist empfehlenswert ;)</p>
-        </div>
-    `;
+// Update user account 
+async function saveUserAccount() {
+    const newName = document.getElementById('settings-name').value;
+    const newEmail = document.getElementById('settings-email').value;
+    const newPass = document.getElementById('settings-password').value;
+    const newPassConfirm = document.getElementById('settings-password-confirm').value;
+
+    if (!newName || !newEmail) {
+        alert("Name und E-Mail dürfen nicht leer sein.");
+        return;
+    }
+
+    if (newPass && newPass !== "") {
+        if (newPass !== newPassConfirm) {
+            alert("Die neuen Passwörter stimmen nicht überein.");
+            return; // Abbruch
+        }
+    }
+
+    // Build payload for user update schema
+    const payload = {
+        name: newName,
+        email: newEmail
+    };
+    
+    // Send password only if changed
+    if (newPass && newPass.trim() !== "") {
+        payload.password = newPass;
+    }
+
+    const res = await apiFetch('/user', {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+    });
+
+    if (res && res.ok) {
+        const updatedUser = await res.json();
+        
+        // Update currentUser if name changed
+        currentUser = updatedUser.name;
+        // Set session storage
+        sessionStorage.setItem('lifeos_user', currentUser);
+        //Update displayed username
+        document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
+        
+        alert("Profil erfolgreich aktualisiert!");
+        document.getElementById('settings-password').value = '';
+        document.getElementById('settings-password-confirm').value = '';
+        
+    } else {
+        const err = await res.json();
+        alert("Fehler: " + (err.detail || "Konnte Profil nicht speichern"));
+    }
 }
 
-async function runApiSearch() {
-    const q = document.getElementById('api-search-input').value;
-    const msg = document.getElementById('api-msg');
-    if(!q) return;
-    msg.innerText = "Suche...";
-    
-    try {
-        const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=1`);
-        const data = await res.json();
+// DELETE user account
+async function deleteUserAccount() {
+    const confirmName = prompt(`WARNUNG: Dies löscht deinen Account und ALLE Daten endgültig!\n\nBitte tippe deinen Benutzernamen ("${currentUser}") zur Bestätigung:`);
 
-        if(data.products && data.products.length > 0) {
-            const p = data.products[0];
-            msg.innerText = `Gefunden: ${p.product_name}`;
-            
-            // Get kcal per 100g
-            const kcal100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'];
-            
-            let weightInput = null;
-            let energyInput = null;
+    if (confirmName !== currentUser) {
+        alert("Abbruch: Name stimmte nicht überein.");
+        return;
+    }
 
-            // Find inputs
-            const inputs = document.querySelectorAll('.gen-input');
-            inputs.forEach(input => {
-                const lbl = input.dataset.label.toLowerCase();
-                
-                // Product Name
-                if(lbl.includes('lebensmittel')) {
-                    input.value = p.product_name || "";
-                }
+    const res = await apiFetch('/user', {
+        method: 'DELETE'
+    });
 
-                // Weight
-                if(lbl.includes('gewicht')) {
-                    weightInput = input;
-                }
-
-                // Energy / Calories
-                if(lbl.includes('energie')) {
-                    energyInput = input;
-                }
-            });
-
-            // Set values and calculate based on weight
-            if(energyInput && kcal100) {
-                // Store kcal per 100g in dataset for later calculations
-                energyInput.dataset.kcalPer100 = kcal100;
-
-                if(weightInput) {
-                    // Standard: 100g
-                    weightInput.value = 100;
-                    energyInput.value = kcal100; 
-
-                    // Event-Listener: calculate kcal based on weight when changed
-                    weightInput.oninput = function() {
-                        const weight = parseFloat(this.value);
-                        const baseKcal = parseFloat(energyInput.dataset.kcalPer100);
-                        
-                        if(!isNaN(weight) && !isNaN(baseKcal)) {
-                            const result = (weight / 100) * baseKcal;
-                            energyInput.value = Math.round(result);
-                        }
-                    };
-                } else {
-                    // If no weight input, just set kcal per 100g
-                    energyInput.value = kcal100;
-                }
-            }
-        // If no products were found
-        } else {
-            msg.innerText = "Nichts gefunden.";
-        }
-    } catch(e) {
-        console.error(e);
-        msg.innerText = "Fehler bei der API-Suche.";
+    if (res && res.ok) {
+        alert("Account gelöscht. Auf Wiedersehen!");
+        logout();
+    } else {
+        alert("Fehler beim Löschen des Accounts.");
     }
 }
