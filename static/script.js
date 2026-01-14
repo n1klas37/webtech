@@ -1,7 +1,7 @@
-// ==========================================
-// Konfiguration & Globale Variablen
-// ==========================================
-// Hinweis: main.py läuft standardmäßig auf Port 8000
+// =================================
+// Konfiguration and global variables
+// =================================
+// set API_BASE to "" for same origin as the frontend
 const API_BASE = ""; 
 
 let authToken = sessionStorage.getItem('lifeos_token');
@@ -9,11 +9,11 @@ let currentUser = sessionStorage.getItem('lifeos_user');
 let categories = [];
 let entries = [];
 let currentCategory = null;
-let editingEntryId = null;   // Speichert die ID des Eintrags, den wir gerade bearbeiten
-let editingEntryDate = null; // Speichert das ursprüngliche Datum
+let editingEntryId = null;   // saves the entry_id being edited
+let editingEntryDate = null; // saves the original date of the entry being edited
 
 // ==========================================
-// Initialisierung
+// Initialization
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     if (authToken && currentUser) {
@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Show login or app screen
 function showLoginScreen() {
     document.getElementById('login-screen').classList.remove('hidden');
     document.getElementById('app-screen').classList.add('hidden');
@@ -35,7 +36,7 @@ function showAppScreen() {
     document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
 }
 
-// Zentrale Fetch-Funktion
+// Centralized API fetch function with auth handling
 async function apiFetch(endpoint, options = {}) {
     if (!options.headers) options.headers = {};
     options.headers['Content-Type'] = 'application/json';
@@ -59,7 +60,7 @@ async function apiFetch(endpoint, options = {}) {
     }
 }
 
-// Hilfsfunktion: Datum in Format YYYY-MM-DDTHH:MM für Input-Feld umwandeln
+// Helper for local ISO string (without seconds)
 function toLocalISOString(dateObj) {
     const pad = (n) => n < 10 ? '0' + n : n;
     return dateObj.getFullYear() + '-' +
@@ -70,7 +71,7 @@ function toLocalISOString(dateObj) {
 }
 
 // ==========================================
-// Auth: Login & Register
+// Auth: Login, Logout & Register
 // ==========================================
 
 let isRegisterMode = false;
@@ -113,7 +114,7 @@ async function handleLogin() {
 
     if (!name || !pass) return;
 
-    // Backend erwartet schemas.UserLogin: { name, password }
+    // Backend awaits schemas.UserLogin {name, password}
     const res = await fetch(API_BASE + '/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,10 +153,10 @@ async function handleRegister() {
     if (pass !== passConfirm) {
         errorEl.innerText = "Die Passwörter stimmen nicht überein!";
         errorEl.classList.remove('hidden');
-        return; // Abbruch
+        return;
     }
 
-    // Backend erwartet schemas.UserRegister
+    // Backend awaits schemas.UserRegister {name, email, password}
     const res = await fetch(API_BASE + '/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,12 +172,12 @@ async function handleRegister() {
     } else {
         let msg = "Fehler beim Registrieren.";
 
-        // Fall 1: Validierungsfehler (Pydantic/FastAPI gibt eine Liste zurück)
+        // Case 1: validationerror i.e. Array of errors from Pydantic
         if (Array.isArray(data.detail)) {
-            // Wir nehmen einfach die Nachricht des ersten Fehlers
+            // Take first error message
             msg = data.detail[0].msg; 
         } 
-        // Fall 2: Manueller Fehler (z.B. "Name already exists" aus main.py)
+        // Case 2: single error message from main.py
         else if (data.detail) {
             msg = data.detail;
         }
@@ -195,22 +196,23 @@ function logout() {
 }
 
 // ==========================================
-// Benutzerverwaltung (Settings)
+// User Profile Load, Save & Delete
 // ==========================================
 
 async function loadUserProfile() {
-    // Daten vom Server holen (GET /user existiert in main.py)
+    // Fetch user data from backend
     const res = await apiFetch('/user');
     if (res && res.ok) {
         const user = await res.json();
         
-        // Formularfelder füllen
+        // Fill in the form
         document.getElementById('settings-name').value = user.name;
         document.getElementById('settings-email').value = user.email;
-        document.getElementById('settings-password').value = ''; // Passwort aus Sicherheit leer lassen
+        document.getElementById('settings-password').value = ''; // leave password empty for security reasons
     }
 }
 
+// Update user profile 
 async function saveUserProfile() {
     const newName = document.getElementById('settings-name').value;
     const newEmail = document.getElementById('settings-email').value;
@@ -229,13 +231,13 @@ async function saveUserProfile() {
         }
     }
 
-    // Payload für UserUpdate Schema bauen
+    // Build payload for user update schema
     const payload = {
         name: newName,
         email: newEmail
     };
     
-    // Nur wenn Passwortfeld ausgefüllt wurde, senden wir es mit
+    // Send password only if changed
     if (newPass && newPass.trim() !== "") {
         payload.password = newPass;
     }
@@ -248,9 +250,11 @@ async function saveUserProfile() {
     if (res && res.ok) {
         const updatedUser = await res.json();
         
-        // Session Storage & Anzeige aktualisieren
+        // Update currentUser if name changed
         currentUser = updatedUser.name;
+        // Set session storage
         sessionStorage.setItem('lifeos_user', currentUser);
+        //Update displayed username
         document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
         
         alert("Profil erfolgreich aktualisiert!");
@@ -263,6 +267,7 @@ async function saveUserProfile() {
     }
 }
 
+// DELETE user account
 async function deleteUserAccount() {
     const confirmName = prompt(`WARNUNG: Dies löscht deinen Account und ALLE Daten endgültig!\n\nBitte tippe deinen Benutzernamen ("${currentUser}") zur Bestätigung:`);
 
@@ -283,18 +288,17 @@ async function deleteUserAccount() {
     }
 }
 
-// ==========================================
-// Daten Laden
-// ==========================================
+// ==================================================
+// Load Data: Categories & Entries and render Sidebar
+// ==================================================
 async function loadData() {
-    // 1. ID sichern & Debugging
-    // Wir wandeln die ID in einen String um, um Typ-Probleme zu vermeiden
+    // Save current category ID to restore view later
     const savedId = currentCategory ? String(currentCategory.id) : null;
-    console.log("🔄 loadData: Versuche ID wiederherzustellen:", savedId);
+    console.log("Debug: savedID in loadData:", savedId);
 
     if (!authToken) return;
 
-    // 2. Daten neu laden
+    // Get categories and entries from database
     const catRes = await apiFetch('/categories/');
     if (catRes && catRes.ok) {
         categories = await catRes.json();
@@ -307,22 +311,23 @@ async function loadData() {
      
     renderSidebar();
 
-    // 3. Ansicht wiederherstellen
+    // Try to reopen the previously opened category
     let foundCategory = null;
 
     if (savedId) {
-        // Robuster Vergleich: Beides als String vergleichen
+        // Try to find category by saved ID
         foundCategory = categories.find(c => String(c.id) === savedId);
     }
 
     if (foundCategory) {
         openCategory(foundCategory);
     } else {
+        // Fallback: open homepage if no category found
         switchTab('homepage');
     }
 }
 
-
+// Render sidebar with categories of current user
 function renderSidebar() {
     const nav = document.getElementById('nav-container');
     nav.innerHTML = ''; 
@@ -339,9 +344,7 @@ function renderSidebar() {
     });
 }
 
-// ==========================================
-// Hauptansicht: Kategorie & Einträge
-// ==========================================
+// Open a category view
 function openCategory(cat) {
     // RESET Edit Mode
     editingEntryId = null;
@@ -357,19 +360,19 @@ function openCategory(cat) {
     document.getElementById('gen-title').innerText = cat.name;
     document.getElementById('gen-desc').innerText = cat.description;
     
-    // Inputs bauen
+    // Render input fields
     const container = document.getElementById('gen-inputs-container');
     container.innerHTML = '';
-    document.getElementById('entry-note').value = ''; // Notiz leeren
+    document.getElementById('entry-note').value = ''; // Reset note field
 
-    // Nutrition Widget prüfen
+    // Show OpenFoodFacts API widget for "ernährung" category
     const widgetContainer = document.getElementById('special-widget-container');
     widgetContainer.innerHTML = '';
     if(cat.name.toLowerCase().includes('ernährung')) {
         renderNutritionWidget(widgetContainer);
     }
 
-    // Felder rendern
+    // Dynamically create input fields based on category definition
     if(cat.fields && cat.fields.length > 0) {
         cat.fields.forEach(field => {
             const wrapper = document.createElement('div');
@@ -383,7 +386,7 @@ function openCategory(cat) {
             const input = document.createElement('input');
             input.type = field.data_type === 'number' ? 'number' : 'text';
             input.className = 'gen-input'; 
-            input.dataset.label = field.label; // Wichtig für Mapping
+            input.dataset.label = field.label;
             input.placeholder = field.label;
             
             wrapper.appendChild(label);
@@ -396,7 +399,7 @@ function openCategory(cat) {
 
     renderEntryList();
 
-    // Sidebar Active State
+    // Show active category in sidebar as active
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const activeBtn = document.getElementById('nav-cat-' + cat.id);
     if(activeBtn) activeBtn.classList.add('active');
@@ -409,44 +412,41 @@ async function saveEntry() {
     const values = {};
     let hasContent = false;
 
-    // --- NEU: Validierungsschleife ---
+    // Input validation for correct data type
     for (const input of inputs) {
         const label = input.dataset.label;
         
-        // 1. Prüfen auf Typ-Fehler (z.B. Text in einem Zahl-Feld)
-        // .badInput ist true, wenn der Browser Text im Feld hat, aber value="" liefert
+        // input.validity.badInput is true if there is a type mismatch (e.g., non-number in number field)
         if (input.validity && input.validity.badInput) {
             alert(`Fehler im Feld "${label}": Der eingegebene Wert ist keine gültige Zahl!`);
-            input.focus(); // Cursor ins fehlerhafte Feld setzen
-            return; // Speichern abbrechen
+            input.focus(); // set focus to the invalid input
+            return; // abort saving
         }
 
         const val = input.value.trim();
 
-        // 2. Wert übernehmen, wenn vorhanden
+        // Only include non-empty values
         if (val !== '') {
             values[label] = val;
             hasContent = true;
         }
     }
-    // ---------------------------------
 
     if (!hasContent) {
         alert("Bitte mindestens ein Feld ausfüllen.");
         return;
     };
 
-    // NEU: Datum aus dem Feld lesen
+    // Leave timestamp as it is if editing, else set to now
     const tsInput = document.getElementById('entry-ts').value;
     let finalDate = tsInput;
     if (!finalDate) {
         finalDate = toLocalISOString(new Date());
     };
 
-    // Payload bauen
+    // Build payload for backend
     const payload = {
         category_id: currentCategory.id,
-        // Wenn wir bearbeiten, nimm das alte Datum, sonst JETZT
         occurred_at: finalDate,
         note: document.getElementById('entry-note').value,
         values: values
@@ -454,14 +454,15 @@ async function saveEntry() {
 
     let res;
     
+    // Differentiate between CREATE and UPDATE
     if (editingEntryId) {
-        // --- UPDATE (PUT) ---
+        // UPDATE (PUT)
         res = await apiFetch('/entries/' + editingEntryId, {
             method: 'PUT',
             body: JSON.stringify(payload)
         });
     } else {
-        // --- CREATE (POST) ---
+        // CREATE (POST)
         res = await apiFetch('/entries/', {
             method: 'POST',
             body: JSON.stringify(payload)
@@ -469,45 +470,45 @@ async function saveEntry() {
     }
 
     if (res && res.ok) {
-        // Reset Inputs & Mode
+        // Reset Inputs & Mode if saved successfully
         inputs.forEach(i => i.value = '');
         document.getElementById('entry-note').value = '';
 
-        // NEU: Nach Speichern Datum wieder auf "Jetzt" setzen für den nächsten Eintrag
+        // Set timestamp to now for new entries
         document.getElementById('entry-ts').value = toLocalISOString(new Date());
         
-        // Modus zurücksetzen
+        // Reset edit mode
         editingEntryId = null;
         editingEntryDate = null;
         document.getElementById('btn-save-entry').innerText = "Speichern";
 
-        await loadData(); // Tabelle neu laden
+        await loadData(); // Reload data to see changes
     } else {
         alert("Fehler beim Speichern.");
     }
 }
 
 function startEditEntry(id) {
-    // Eintrag in der lokalen Liste finden
+    // Search for the entry by ID in the local entries array
     const entry = entries.find(e => e.id === id);
     if (!entry) return;
 
-    // Globale Variablen setzen
+    // Set global editingEntryId
     editingEntryId = entry.id;
 
-    // Button Text ändern
+    // Change button text to show edit mode
     document.getElementById('btn-save-entry').innerText = "Ändern ✅";
 
-    // Notiz füllen
+    // Load note
     document.getElementById('entry-note').value = entry.note || '';
 
-    // NEU: Zeitpunkt in das Feld laden
+    // Set timestamp as the entry's occurred_at
     if (entry.occurred_at) {
         const dateObj = new Date(entry.occurred_at);
         document.getElementById('entry-ts').value = toLocalISOString(dateObj);
     }
 
-    // Felder füllen
+    // Fill in input fields with existing data
     const inputs = document.querySelectorAll('.gen-input');
     inputs.forEach(input => {
         const label = input.dataset.label;
@@ -519,35 +520,34 @@ function startEditEntry(id) {
         }
     });
     
-    // Nach oben scrollen, damit der User sieht, wo er editiert
+    // Scroll to inputs
     document.getElementById('gen-inputs-container').scrollIntoView({behavior: 'smooth'});
 }
 
+// Render the list of entries for the current category
 function renderEntryList() {
     const tbody = document.getElementById('list-generic');
     
-    // 1. Limit aus dem Dropdown holen
+    // Read limit from input dropdown
     const limitInput = document.getElementById('entry-limit');
-    // Fallback auf 10, falls Element noch nicht geladen (Sicherheitshalber)
+    // Fallback to 10 if not found
     const limit = limitInput ? parseInt(limitInput.value) : 10;
 
-    // 2. Filtern: Nur Einträge dieser Kategorie
+    // Only show entries of the current category
     const catEntries = entries.filter(e => e.category_id === currentCategory.id);
 
-    // 3. Begrenzen der Anzeige (slice von 0 bis limit)
+    // Sort by occurred_at descending and slice at limit
     const displayedEntries = catEntries.slice(0, limit);
 
     tbody.innerHTML = displayedEntries.map(e => {
-        // e.data enthält die Werte { "Gewicht": "80", ... }
+        // e.data is an object with key-value pairs
         let detailsHtml = '';
         if (e.data) {
             for (const [key, val] of Object.entries(e.data)) {
-                // --- NEU: Einheit suchen ---
-                // Wir schauen in den Feldern der aktuellen Kategorie, ob es eines mit diesem Label gibt
+                // Search for field definition in current category to get unit
                 const fieldDef = currentCategory.fields.find(f => f.label === key);
-                // Wenn Feld gefunden und Einheit existiert, dann nutzen, sonst leerer String
+                // If fieldDef has unit, append it, if not, leave empty
                 const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
-                // ---------------------------
 
                 detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem;">
                     <b>${key}:</b> ${val}${unit}
@@ -555,6 +555,7 @@ function renderEntryList() {
             }
         }
 
+        // Format occurred_at date to local time
         const date = new Date(e.occurred_at);
         const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
@@ -572,6 +573,8 @@ function renderEntryList() {
     }).join('');
 }
 
+
+// DELETE an entry by ID
 async function deleteEntry(id) {
     if(!confirm("Eintrag wirklich löschen?")) return;
     
@@ -582,7 +585,7 @@ async function deleteEntry(id) {
 }
 
 // ==========================================
-// Kategorie Erstellen
+// Category Creation, Editing & Deletion
 // ==========================================
 function initCreateCategoryView() {
     document.getElementById('new-cat-name').value = '';
@@ -596,13 +599,11 @@ function addFieldRow() {
     const div = document.createElement('div');
     div.className = 'field-row';
     
-    // WICHTIG: align-items: stretch sorgt für gleiche Höhe
+    // Align items horizontally for a better layout
     div.style.cssText = "display:flex; gap:10px; margin-bottom:10px; align-items:stretch;";
-    
-    // Style-Variable für Inputs/Selects (WICHTIG: box-sizing: border-box)
-    // Damit wird Padding nicht zur Höhe addiert, sondern ist inklusive.
     const fieldStyle = "padding:10px; border:1px solid #ddd; border-radius:8px; box-sizing:border-box; height:42px;"; 
 
+    // Inner HTML for the field row
     div.innerHTML = `
         <input type="text" class="f-label" placeholder="Feldname (z.B. Einnahmen)" 
             style="flex:2; ${fieldStyle}">
@@ -643,7 +644,7 @@ async function createCategory() {
 
     if (fields.length === 0) return alert("Mindestens ein Feld definieren.");
 
-    // Backend: CategoryCreate Schema
+    // Payload for backend (CategoryCreate Schema)
     const payload = {
         name: name,
         description: desc,
@@ -657,7 +658,7 @@ async function createCategory() {
 
     if (res && res.ok) {
         await loadData();
-        // Zurück zur letzten (neuen) Kategorie springen
+        // Open the newly created category (last in the list)
         if (categories.length > 0) {
             openCategory(categories[categories.length - 1]);
         }
@@ -669,14 +670,14 @@ async function createCategory() {
 async function editCurrentCategory() {
     if(!currentCategory) return;
 
-    // Aktuelle Werte als Vorschlag anzeigen
+    // Prompt for new name and description with current values as default
     const newName = prompt("Neuer Name für die Kategorie:", currentCategory.name);
     if (newName === null) return; // Abbrechen gedrückt
 
     const newDesc = prompt("Neue Beschreibung:", currentCategory.description);
     if (newDesc === null) return; 
 
-    // Payload für Backend (CategoryUpdate Schema)
+    // Payload for backend (CategoryUpdate Schema)
     const payload = {
         name: newName,
         description: newDesc
@@ -689,12 +690,13 @@ async function editCurrentCategory() {
 
     if (res && res.ok) {
         alert("Kategorie aktualisiert!");
-        await loadData(); // Alles neu laden (Sidebar & Titel aktualisieren sich dann)
+        await loadData(); // Reload data to see changes
     } else {
         alert("Fehler beim Aktualisieren.");
     }
 }
 
+// DELETE current category
 async function deleteCurrentCategory() {
     if (!currentCategory) return;
 
@@ -702,95 +704,57 @@ async function deleteCurrentCategory() {
     
     if (!confirm(confirmMsg)) return;
 
-    // API Aufruf zum Löschen
+    // API call to delete category
     const res = await apiFetch('/categories/' + currentCategory.id, {
         method: 'DELETE'
     });
 
     if (res && res.ok) {
-        // Erfolg: Auswahl zurücksetzen und neu laden
+        // Reset currentCategory
         currentCategory = null; 
         alert("Kategorie gelöscht.");
         await loadData(); 
-        // loadData() springt automatisch zur Homepage oder zur ersten verbleibenden Kategorie
     } else {
         alert("Fehler beim Löschen der Kategorie.");
     }
     loadData();
 }
 
-// ==========================================
-// Reporting & Charts
-// ==========================================
+// Reporting and Charts
 let myChart;
 let sleepChart;
 let kcalChart;
 
 function renderReporting() {
-    const ctx = document.getElementById('chart-balance');
-    if(!ctx) return;
     
-    // Daten aggregieren: Anzahl Einträge pro Kategorie
-    const counts = {};
-    const catNames = {};
-
-    // Map ID -> Name
-    categories.forEach(c => catNames[c.id] = c.name);
-
-    entries.forEach(e => {
-        const name = catNames[e.category_id] || "Unbekannt";
-        counts[name] = (counts[name] || 0) + 1;
-    });
-
-    if(myChart) myChart.destroy();
-    
-    myChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(counts),
-            datasets: [{
-                label: 'Anzahl Einträge',
-                data: Object.values(counts),
-                backgroundColor: '#3b82f6',
-                borderRadius: 8
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } }
-            }
-        }
-    });
-
+    renderEntryCountChart();
     renderKcalChart();
     renderSleepChart();
 }
 
-// --- Chart 1: Schlafdauer (Letzte 5 Tage) ---
-// --- Chart 1: Schlafdauer (Letzte 5 Tage) ---
+// Chart 1: Sleeping hours past 5 days ---
 function renderSleepChart() {
     const ctx = document.getElementById('chart-sleep');
     if (!ctx) return;
 
-    // 1. Kategorie "Schlaf" finden
+    // Find category "schlaf"
     const sleepCat = categories.find(c => c.name.toLowerCase().includes('schlaf'));
     
     const labels = [];
     const dataPoints = [];
     const today = new Date();
 
-    // Letzte 5 Tage durchlaufen
+    // go through last 5 days
     for (let i = 4; i >= 0; i--) {
         const d = new Date();
         d.setDate(today.getDate() - i);
         const dateStr = d.toISOString().split('T')[0]; 
         
-        // Label (z.B. "Mo, 12.05")
+        // set label
         const label = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
         labels.push(label);
 
-        // Daten summieren
+        // sum up sleeping hours for that day
         let hours = 0;
         if (sleepCat) {
             const daysEntries = entries.filter(e => 
@@ -809,10 +773,9 @@ function renderSleepChart() {
         dataPoints.push(hours);
     }
 
-    // --- NEU: Durchschnitt berechnen ---
-    // Wir filtern 0-Werte NICHT heraus, da sie den Schnitt drücken (kein Schlaf eingetragen = schlecht)
+    // Calculate average sleep hours over the past 5 days
     const totalHours = dataPoints.reduce((a, b) => a + b, 0);
-    const avgHours = (totalHours / 5).toFixed(1); // Eine Nachkommastelle
+    const avgHours = (totalHours / 5).toFixed(1);
 
     if (sleepChart) sleepChart.destroy();
 
@@ -831,32 +794,31 @@ function renderSleepChart() {
             responsive: true,
             scales: { y: { beginAtZero: true, suggestedMax: 8 } },
             plugins: {
-                // Titel aktivieren und Durchschnitt anzeigen
                 title: {
                     display: true,
                     text: `Schlaf (Letzte 5 Tage) - Ø ${avgHours} Std.`,
                     font: { size: 16 }
                 },
-                legend: { display: false } // Legende ausblenden, Titel reicht
+                legend: { display: false } // Legend can be omitted
             }
         }
     });
 }
 
-// --- Chart 2: Kalorienbilanz (Heute) ---
-// --- Chart 2: Kalorienbilanz (Heute) ---
+
+// Chart 2: Calorie balance today ---
 function renderKcalChart() {
     const ctx = document.getElementById('chart-kcal');
     if (!ctx) return;
 
-    // Kategorien finden
+    // Find cat "ernährung" and "fitness"
     const foodCat = categories.find(c => c.name.toLowerCase().includes('ernährung') || c.name.toLowerCase().includes('essen'));
     const fitCat = categories.find(c => c.name.toLowerCase().includes('fitness') || c.name.toLowerCase().includes('sport'));
 
-    // Datum Heute
+    // Set today's date string
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Hilfsfunktion
+    // Sum up kcal for a given category today
     const sumKcal = (cat) => {
         if (!cat) return 0;
         let sum = 0;
@@ -878,9 +840,9 @@ function renderKcalChart() {
     const kcalIn = sumKcal(foodCat);
     const kcalOut = sumKcal(fitCat);
 
-    // --- NEU: Differenz berechnen ---
+    // calculate balance
     const balance = kcalIn - kcalOut;
-    // Text formatieren: +200 oder -150
+    // format balance with + or - sign
     const sign = balance > 0 ? '+' : ''; 
     const balanceText = `${sign}${balance}`;
 
@@ -901,20 +863,60 @@ function renderKcalChart() {
             indexAxis: 'y',
             scales: { x: { beginAtZero: true } },
             plugins: {
-                // Titel aktivieren und Bilanz anzeigen
                 title: {
                     display: true,
                     text: `Kalorien Heute (Bilanz: ${balanceText} kcal)`,
                     font: { size: 16 }
                 },
-                legend: { display: false }
+                legend: { display: false } // Legend can be omitted
             }
         }
     });
 }
 
+// Chart 3: Count of entries per category
+function renderEntryCountChart() {
+const ctx = document.getElementById('chart-balance');
+    if(!ctx) return;
+    
+    // Calculate counts per category
+    const counts = {};
+    const catNames = {};
+
+    // Map category IDs to names
+    categories.forEach(c => catNames[c.id] = c.name);
+
+    // Count entries per category
+    entries.forEach(e => {
+        const name = catNames[e.category_id] || "Unbekannt";
+        counts[name] = (counts[name] || 0) + 1;
+    });
+
+    if(countChart) countChart.destroy();
+
+    countChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(counts),
+            datasets: [{
+                label: 'Anzahl Einträge',
+                data: Object.values(counts),
+                backgroundColor: '#3b82f6',
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+        }
+    });
+}
+
+
 // ==========================================
-// Navigation & Extras
+// Navigation and extras
 // ==========================================
 function switchTab(tabId) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
@@ -942,7 +944,7 @@ function switchTab(tabId) {
         if(btn) btn.classList.add('active');
         currentCategory = null;
 
-        // NEU: Benutzernamen in die Begrüßung einfügen
+        //Show username on homepage
         const nameElement = document.getElementById('home-user-name');
         if (nameElement && currentUser) {
             nameElement.innerText = currentUser;
@@ -950,7 +952,7 @@ function switchTab(tabId) {
     }
 }
 
-// OpenFoodFacts Widget (bleibt gleich, hilft beim Ausfüllen)
+// Show nutrition widget for food category
 function renderNutritionWidget(container) {
     container.innerHTML = `
         <div style="background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:20px;">
@@ -978,36 +980,36 @@ async function runApiSearch() {
             const p = data.products[0];
             msg.innerText = `Gefunden: ${p.product_name}`;
             
-            // Nährwerte holen (Energie in kcal)
+            // Get kcal per 100g
             const kcal100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'];
             
             let weightInput = null;
             let energyInput = null;
 
-            // Inputs durchsuchen
+            // Find inputs
             const inputs = document.querySelectorAll('.gen-input');
             inputs.forEach(input => {
                 const lbl = input.dataset.label.toLowerCase();
                 
-                // 1. Name: Prüft auf "Lebensmittel" (dein Wunsch) oder "Mahlzeit" (Standard in main.py)
-                if(lbl.includes('lebensmittel') || lbl.includes('mahlzeit')) {
+                // Product Name
+                if(lbl.includes('lebensmittel')) {
                     input.value = p.product_name || "";
                 }
 
-                // 2. Gewicht
+                // Weight
                 if(lbl.includes('gewicht')) {
                     weightInput = input;
                 }
 
-                // 3. Energie
+                // Energy / Calories
                 if(lbl.includes('energie')) {
                     energyInput = input;
                 }
             });
 
-            // Werte setzen und Berechnung starten
+            // Set values and calculate based on weight
             if(energyInput && kcal100) {
-                // Wir speichern den 100g-Basiswert am Element
+                // Store kcal per 100g in dataset for later calculations
                 energyInput.dataset.kcalPer100 = kcal100;
 
                 if(weightInput) {
@@ -1015,23 +1017,22 @@ async function runApiSearch() {
                     weightInput.value = 100;
                     energyInput.value = kcal100; 
 
-                    // Event-Listener: Berechnet Energie neu, wenn Gewicht geändert wird
+                    // Event-Listener: calculate kcal based on weight when changed
                     weightInput.oninput = function() {
                         const weight = parseFloat(this.value);
                         const baseKcal = parseFloat(energyInput.dataset.kcalPer100);
                         
                         if(!isNaN(weight) && !isNaN(baseKcal)) {
-                            // Formel: (Gewicht / 100) * EnergiePro100
                             const result = (weight / 100) * baseKcal;
                             energyInput.value = Math.round(result);
                         }
                     };
                 } else {
-                    // Fallback, falls kein Gewichtsfeld da ist
+                    // If no weight input, just set kcal per 100g
                     energyInput.value = kcal100;
                 }
             }
-
+        // If no products were found
         } else {
             msg.innerText = "Nichts gefunden.";
         }
