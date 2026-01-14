@@ -19,13 +19,13 @@ body {
     color: var(--text-main);
     background-color: var(--bg-body);
     height: 100vh;
-    overflow: hidden; /* Verhindert Scrollbalken am Body */
+    overflow: hidden;
 }
 
-/* --- FIX: Flexbox muss auf den Container #app-screen --- */
+
 #app-screen {
-    display: flex;       /* Macht aside und main zu Nachbarn */
-    height: 100%;        /* Füllt den ganzen Bildschirm */
+    display: flex;       
+    height: 100%;
     width: 100%;
 }
 
@@ -37,7 +37,7 @@ aside {
     padding: 20px;
     display: flex;
     flex-direction: column;
-    overflow-y: auto; /* Falls Sidebar zu lang wird */
+    overflow-y: auto; 
 }
 
 aside h2 {
@@ -50,7 +50,7 @@ aside h2 {
     padding-bottom: 10px;
 }
 
-/* Navigation Links */
+/* Navigation on Sidebar */
 .nav-item {
     display: block;
     padding: 10px 15px;
@@ -70,16 +70,16 @@ aside h2 {
 
 /* Main Area */
 main {
-    flex: 1;              /* Nimmt den restlichen Platz ein */
+    flex: 1;
     padding: 40px;
-    overflow-y: auto;     /* Scrollen nur im Hauptbereich */
+    overflow-y: auto;    
     background-color: white;
 }
 
-/* Helper Class zum Verstecken */
+/* Helper Class  */
 .hidden { display: none !important; }
 
-/* Cards: Kantiger "Tech"-Look */
+
 .card {
     background: white;
     border: 1px solid var(--border-color);
@@ -87,7 +87,7 @@ main {
     margin-bottom: 20px;
 }
 
-/* Buttons */
+
 button {
     cursor: pointer;
     border: 1px solid transparent;
@@ -118,7 +118,7 @@ input:focus {
     border-color: var(--col-primary);
 }
 
-/* Tabellen */
+/* Tables */
 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
 th { text-align: left; background: #f1f3f5; border-bottom: 2px solid var(--border-color); padding: 8px; }
 td { border-bottom: 1px solid var(--border-color); padding: 8px; }

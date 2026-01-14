@@ -21,6 +21,7 @@ let editingEntryDate = null; // saves the original date of the entry being edite
 let countChart;
 let sleepChart;
 let kcalChart;
+let fitnessChart;
 
 /*==============================
 Initialization and Start of App
@@ -481,6 +482,43 @@ function openCategory(cat) {
             input.dataset.label = field.label;
             input.placeholder = field.label;
             
+            // If field label is "Übung", add datalist for correct suggestions
+            if (field.label === "Übung") {
+                input.type = "text";
+                
+                // Fetch all existing exercises from entries for this category
+                const existingExercises = new Set();
+                
+                entries.forEach(e => {
+                    // Only consider entries of the current category (fitness)
+                    if (e.category_id === cat.id && e.data && e.data[field.label]) {
+                        existingExercises.add(e.data[field.label]);
+                    }
+                });
+
+                // Set up datalist id
+                const listId = "list-" + field.label + "-" + cat.id;
+                input.setAttribute("list", listId);
+
+                // Create datalist element
+                const datalist = document.createElement('datalist');
+                datalist.id = listId;
+                
+                // Add options to datalist
+                existingExercises.forEach(val => {
+                    const option = document.createElement('option');
+                    option.value = val;
+                    datalist.appendChild(option);
+                });
+
+                wrapper.appendChild(datalist);
+            } else {
+                // Standard Verhalten für andere Felder
+                input.type = field.data_type === 'number' ? 'number' : 'text';
+            }
+
+            // --- NEUE LOGIK ENDE ---
+            
             wrapper.appendChild(label);
             wrapper.appendChild(input);
             container.appendChild(wrapper);
@@ -775,6 +813,7 @@ function renderReporting() {
     renderEntryCountChart();
     renderKcalChart();
     renderSleepChart();
+    renderFitnessChart();
 }
 
 // Chart 1: Sleeping hours past 5 days
@@ -954,6 +993,147 @@ const ctx = document.getElementById('chart-balance');
             responsive: true,
             scales: {
                 y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+        }
+    });
+}
+
+// Chart 4: Fitness exercises over past 7 days
+function renderFitnessChart() {
+    const exerciseSelect = document.getElementById('prog-exercise');
+    const metricSelect = document.getElementById('prog-metric');
+    
+    // 1. Fitness-Kategorie finden (sucht nach "fitness" oder "sport" im Namen)
+    const fitCat = categories.find(c => {
+        const n = c.name.toLowerCase();
+        return n.includes('fitness') || n.includes('sport') || n.includes('training');
+    });
+
+    if (!fitCat) {
+        exerciseSelect.innerHTML = '<option>Keine Fitness-Kategorie gefunden</option>';
+        return;
+    }
+
+    // 2. Alle eindeutigen Übungsnamen sammeln
+    // Wir gehen davon aus, dass das Feld für den Namen "Übung" heißt (siehe dein vorheriges Feature)
+    const exerciseNames = new Set();
+    const relevantEntries = entries.filter(e => e.category_id === fitCat.id);
+
+    relevantEntries.forEach(e => {
+        if (e.data && e.data['Übung']) {
+            exerciseNames.add(e.data['Übung']);
+        }
+    });
+
+    // 3. Übungs-Dropdown befüllen
+    exerciseSelect.innerHTML = '<option value="">-- Übung wählen --</option>';
+    Array.from(exerciseNames).sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.innerText = name;
+        exerciseSelect.appendChild(opt);
+    });
+
+    // 4. Metrik-Dropdown befüllen (nur Zahlenfelder aus der Kategorie-Definition)
+    // Wir schauen in die Felder-Definition der Kategorie
+    metricSelect.innerHTML = '<option value="">-- Wert wählen --</option>';
+    fitCat.fields.forEach(f => {
+        // Wir wollen nur Zahlen plotten (z.B. Gewicht, Dauer), keine Texte
+        if (f.data_type === 'number') {
+            const opt = document.createElement('option');
+            opt.value = f.label;
+            opt.innerText = f.unit ? `${f.label} (${f.unit})` : f.label;
+            
+            // Standard-Auswahl: Falls es "Gewicht" gibt, wähle das vor
+            if (f.label.toLowerCase().includes('gewicht')) opt.selected = true;
+            
+            metricSelect.appendChild(opt);
+        }
+    });
+}
+
+function updateFitnessChart() {
+    const ctx = document.getElementById('chart-progress');
+    const exerciseName = document.getElementById('prog-exercise').value;
+    const metricLabel = document.getElementById('prog-metric').value;
+
+    if (!ctx) return;
+    
+    // Wenn nichts ausgewählt ist, leeres Chart oder Abbruch
+    if (!exerciseName || !metricLabel) {
+        if (fitnessChart) fitnessChart.destroy();
+        return;
+    }
+
+    // 1. Daten filtern
+    // Wir brauchen die Fitness-Kategorie nochmal
+    const fitCat = categories.find(c => {
+        const n = c.name.toLowerCase();
+        return n.includes('fitness') || n.includes('sport') || n.includes('training');
+    });
+    if(!fitCat) return;
+
+    // Filtere alle Einträge dieser Kategorie, die die gewählte Übung und den gewählten Wert haben
+    let dataPoints = entries.filter(e => 
+        e.category_id === fitCat.id && 
+        e.data && 
+        e.data['Übung'] === exerciseName &&
+        e.data[metricLabel] !== undefined &&
+        e.data[metricLabel] !== ""
+    );
+
+    // Sortiere nach Datum (älteste zuerst) für korrekten Linienverlauf
+    dataPoints.sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at));
+
+    // 2. Daten für Chart.js aufbereiten
+    const labels = dataPoints.map(e => {
+        const d = new Date(e.occurred_at);
+        return d.toLocaleDateString(); // X-Achse: Datum
+    });
+    
+    const values = dataPoints.map(e => parseFloat(e.data[metricLabel])); // Y-Achse: Wert
+
+    // 3. Chart zeichnen
+    if (fitnessChart) fitnessChart.destroy();
+
+    fitnessChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `${exerciseName} - ${metricLabel}`,
+                data: values,
+                borderColor: '#0d6efd', // Primary Blue
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                borderWidth: 2,
+                tension: 0.3, // Macht die Linie etwas kurvig/smooth
+                pointRadius: 4,
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#0d6efd',
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false, // Bei Gewicht ist 0 meist uninteressant
+                    grid: { borderDash: [5, 5] }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { display: true },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y + " " + (metricLabel.includes('Gewicht') ? 'kg' : '');
+                        }
+                    }
+                }
             }
         }
     });
