@@ -97,10 +97,10 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
     # 1. Name Check
     if db.query(models.User).filter(models.User.name == user_data.name).first():
-        raise HTTPException(400, "Name already exists")
+        raise HTTPException(400, "Benutzername bereits vergeben")
     # 2. Email Check
     if db.query(models.User).filter(models.User.email == user_data.email).first():
-        raise HTTPException(400, "Email already exists")
+        raise HTTPException(400, "Email bereits vergeben")
 
     new_user = models.User(
         name=user_data.name,
@@ -125,7 +125,7 @@ def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.name == user_data.name).first()
     if not user or not verify_password(user_data.password, user.password_hash):
-        raise HTTPException(401, "Incorrect name or password")
+        raise HTTPException(401, "Benutzername oder Passwort falsch")
 
     token = str(uuid.uuid4())
     expires = datetime.utcnow() + timedelta(days=30)
@@ -150,13 +150,13 @@ def update_user_profile(
     if user_data.name:
         existing = db.query(models.User).filter(models.User.name == user_data.name).first()
         if existing and existing.id != current_user.id:
-            raise HTTPException(400, "Name already taken")
+            raise HTTPException(400, "Benutzername bereits vergeben")
         current_user.name = user_data.name
 
     if user_data.email:
         existing = db.query(models.User).filter(models.User.email == user_data.email).first()
         if existing and existing.id != current_user.id:
-            raise HTTPException(400, "Email already taken")
+            raise HTTPException(400, "Email bereits vergeben")
         current_user.email = user_data.email
 
     if user_data.password:

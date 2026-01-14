@@ -30,6 +30,11 @@
             <label>Passwort</label>
             <input type="password" id="password" placeholder="Min. 8 Zeichen, Zahl & Großbuchstabe">
 
+            <div id="password-confirm-container" class="hidden">
+                <label>Passwort wiederholen</label>
+                <input type="password" id="password-confirm" placeholder="Passwort erneut eingeben">
+            </div>
+
             <button id="btn-login" onclick="handleLogin()" class="btn-blue">Einloggen</button>
             <button id="btn-register" onclick="handleRegister()" class="btn-green hidden">Kostenlos Registrieren</button>
             
@@ -205,6 +210,7 @@
 
                                 <label>Neues Passwort (optional)</label>
                                 <input type="password" id="settings-password" placeholder="Leer lassen, wenn keine Änderung">
+                                <input type="password" id="settings-password-confirm" placeholder="Neues Passwort wiederholen">
 
                                 <button onclick="saveUserProfile()" class="btn-blue">Änderungen speichern</button>
                             </div>

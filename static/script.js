@@ -80,16 +80,25 @@ function toggleAuthMode() {
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-success').classList.add('hidden');
 
+    const emailContainer = document.getElementById('email-container');
+    const passConfirmContainer = document.getElementById('password-confirm-container');
+
     if (isRegisterMode) {
         document.getElementById('auth-title').innerText = "Konto erstellen";
+
         document.getElementById('email-container').classList.remove('hidden');
+        passConfirmContainer.classList.remove('hidden');
+
         document.getElementById('btn-login').classList.add('hidden');
         document.getElementById('btn-register').classList.remove('hidden');
         document.getElementById('txt-toggle').innerText = "Bereits ein Konto?";
         document.getElementById('link-toggle').innerText = "Anmelden";
     } else {
         document.getElementById('auth-title').innerText = "Willkommen zurück";
+
         document.getElementById('email-container').classList.add('hidden');
+        passConfirmContainer.classList.add('hidden');
+
         document.getElementById('btn-login').classList.remove('hidden');
         document.getElementById('btn-register').classList.add('hidden');
         document.getElementById('txt-toggle').innerText = "Noch kein Konto?";
@@ -130,13 +139,20 @@ async function handleRegister() {
     const name = document.getElementById('username').value;
     const mail = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
+    const passConfirm = document.getElementById('password-confirm').value;
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
 
-    if (!name || !mail || !pass) {
+    if (!name || !mail || !pass || !passConfirm) {
         errorEl.innerText = "Bitte alle Felder ausfüllen.";
         errorEl.classList.remove('hidden');
         return;
+    }
+
+    if (pass !== passConfirm) {
+        errorEl.innerText = "Die Passwörter stimmen nicht überein!";
+        errorEl.classList.remove('hidden');
+        return; // Abbruch
     }
 
     // Backend erwartet schemas.UserRegister
@@ -153,7 +169,20 @@ async function handleRegister() {
         successEl.classList.remove('hidden');
         setTimeout(() => toggleAuthMode(), 1500);
     } else {
-        errorEl.innerText = data.detail || "Fehler beim Registrieren.";
+        let msg = "Fehler beim Registrieren.";
+
+        // Fall 1: Validierungsfehler (Pydantic/FastAPI gibt eine Liste zurück)
+        if (Array.isArray(data.detail)) {
+            // Wir nehmen einfach die Nachricht des ersten Fehlers
+            msg = data.detail[0].msg; 
+        } 
+        // Fall 2: Manueller Fehler (z.B. "Name already exists" aus main.py)
+        else if (data.detail) {
+            msg = data.detail;
+        }
+
+        errorEl.innerText = "Fehler: " + msg;
+        
         errorEl.classList.remove('hidden');
     }
 }
@@ -186,10 +215,18 @@ async function saveUserProfile() {
     const newName = document.getElementById('settings-name').value;
     const newEmail = document.getElementById('settings-email').value;
     const newPass = document.getElementById('settings-password').value;
+    const newPassConfirm = document.getElementById('settings-password-confirm').value;
 
     if (!newName || !newEmail) {
         alert("Name und E-Mail dürfen nicht leer sein.");
         return;
+    }
+
+    if (newPass && newPass !== "") {
+        if (newPass !== newPassConfirm) {
+            alert("Die neuen Passwörter stimmen nicht überein.");
+            return; // Abbruch
+        }
     }
 
     // Payload für UserUpdate Schema bauen
@@ -217,7 +254,9 @@ async function saveUserProfile() {
         document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
         
         alert("Profil erfolgreich aktualisiert!");
-        document.getElementById('settings-password').value = ''; // Feld leeren
+        document.getElementById('settings-password').value = '';
+        document.getElementById('settings-password-confirm').value = '';
+        
     } else {
         const err = await res.json();
         alert("Fehler: " + (err.detail || "Konnte Profil nicht speichern"));
