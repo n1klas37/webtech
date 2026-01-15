@@ -49,8 +49,8 @@
     <div id="app-screen" class="hidden">
         <!-- Sidebar -->
         <aside>
-            <h2>Life-OS</h2>
-            
+            <h2 onclick="switchTab('homepage')" style="cursor: pointer;">Life-OS</h2>
+
             <nav>
                 <a href="#" onclick="switchTab('homepage')" id="nav-homepage" class="nav-item">🏠 Homepage</a>
             </nav>
@@ -58,22 +58,21 @@
             </nav>
 
             <button onclick="switchTab('create-category')" class="nav-item" style="color:var(--col-primary); border:1px dashed var(--col-primary); background:transparent;">+ Neue Kategorie</button>
-
             
             <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 10px 0;">
-            
+
             <nav>
                  <a href="#" onclick="switchTab('reporting')" id="nav-reporting" class="nav-item">📊 Reporting</a>
             </nav>
-            
+
             <div>
                 <p id="display-username"></p>
                 
-                <button onclick="switchTab('settings')" class="nav-item" style="margin-bottom: 5px;">
+                <button onclick="switchTab('settings')" class="nav-item" style="margin-bottom: 5px; text-align: center;">
                     Benutzerdaten ändern
                 </button>
                 
-                <button onclick="logout()" id="btn-logout" class="nav-item">
+                <button onclick="logout()" id="btn-logout" class="nav-item" style="text-align: center;">
                     Abmelden
                 </button>
             </div>
@@ -94,12 +93,14 @@
                 <div class="grid-2">
                     <div class="card">
                         <h3>Schnellstart</h3>
-                        <p>Wähle eine Kategorie aus der Seitenleiste links, um neue Einträge zu erfassen oder deinen Verlauf anzusehen.</p>
+                        <p>Wähle eine Kategorie aus der Seitenleiste links, um neue Einträge zu erfassen oder deinen Verlauf anzusehen. Mit den Knöpfen in der Verlaufsansicht kannst du Einträge bearbeiten oder löschen.</p>
+                        <p>Unter "+ Neue Kategorie" kannst du eine neue Kategorie anlegen.</p>
                     </div>
 
                     <div class="card">
-                        <h3>Auswertung</h3>
+                        <h3>Reporting</h3>
                         <p>Schau dir unter "Reporting" an, wie sich deine Daten entwickeln und behalte den Überblick.</p>
+                        <p>Du findest dort vorgefertigte Auswertungen. Die Möglichkeit Auswertungen für eigene Kategorien zu erstellen, ist noch in Entwicklung.</p>
                         <button onclick="switchTab('reporting')" class="btn-small btn-blue mt-15" style="width:auto;">Zum Reporting</button>
                     </div>
                 </div>
@@ -151,7 +152,7 @@
                                     </select>
                                 </div>
                                 <table>
-                                    <thead><tr><th>Details</th><th>Notiz</th><th>Zeit</th><th>Löschen</th></tr></thead>
+                                    <thead><tr><th>Details</th><th>Notiz</th><th>Zeit</th><th></th></tr></thead>
                                     <tbody id="list-generic"></tbody>
                                 </table>
                             </div>
@@ -187,17 +188,17 @@
                             <p style="color:var(--text-muted); margin-bottom:15px;">Wähle eine Übung und einen Wert (z.B. Gewicht), um deinen Verlauf zu sehen.</p>
                             
                             <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
-                                <select id="prog-exercise" onchange="updateProgressChart()" style="flex:1; min-width:150px;">
+                                <select id="prog-exercise" onchange="updateFitnessChart()" style="flex:1; min-width:150px;">
                                     <option value="">-- Übung wählen --</option>
                                 </select>
                                 
-                                <select id="prog-metric" onchange="updateProgressChart()" style="flex:1; min-width:150px;">
+                                <select id="prog-metric" onchange="updateFitnessChart()" style="flex:1; min-width:150px;">
                                     <option value="">-- Wert wählen --</option>
                                 </select>
                             </div>
 
                             <div style="position: relative; height:300px; width:100%">
-                                <canvas id="chart-progress"></canvas>
+                                <canvas id="chart-fitness"></canvas>
                             </div>
                         </div>
 

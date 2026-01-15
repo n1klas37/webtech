@@ -63,7 +63,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     cat_diary = models.Category(user_id=user_id, name="📖 Tagebuch", description="Gedanken")
     db.add(cat_diary)
     db.commit()
-    db.add(models.CategoryField(category_id=cat_diary.id, label="Laune", data_type="number", unit="1-10"))
+    db.add(models.CategoryField(category_id=cat_diary.id, label="Laune (1-10)", data_type="number", unit=""))
     db.add(models.CategoryField(category_id=cat_diary.id, label="Highlight", data_type="text"))
     db.commit()
 
@@ -72,7 +72,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(cat_diary)
     db.commit()
     db.add(models.CategoryField(category_id=cat_diary.id, label="Dauer", data_type="number", unit="Stunden"))
-    db.add(models.CategoryField(category_id=cat_diary.id, label="Erholung", data_type="number", unit="1-10"))
+    db.add(models.CategoryField(category_id=cat_diary.id, label="Erholung (1-10)", data_type="number", unit=""))
     db.commit()
 
 

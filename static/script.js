@@ -544,7 +544,7 @@ function renderNutritionWidget(container) {
                 <input id="api-search-input" type="text" placeholder="z.B. Vollmilch, Salami..." style="flex:1; margin:0;">
                 <button onclick="runApiSearch()" class="btn-green" style="width:auto; margin:0;">Suchen</button>
             </div>
-            <p id="api-msg" style="margin:5px 0 0 0; font-size:0.85rem; color:#666;">Hinweis: Die API ist nicht zuverlässig. Etwas rumprobieren ist empfehlenswert ;)</p>
+            <p id="api-msg" style="margin:5px 0 0 0; font-size:0.85rem; color:#666;">Hinweis: Die API ist nicht zuverlässig. Etwas ausprobieren ist dennoch empfehlenswert ;)</p>
         </div>
     `;
 }
@@ -796,8 +796,8 @@ function renderEntryList() {
             <td style="font-style:italic; color:#666;">${e.note || '-'}</td>
             <td style="font-size:0.8rem;">${timeStr}</td>
             <td>
-                <button onclick="startEditEntry(${e.id})" class="btn-small btn-blue" style="margin:0; margin-bottom:5px;">✏️</button>
-                <button onclick="deleteEntry(${e.id})" class="btn-small btn-red" style="margin:0;">🗑️</button>
+                <button onclick="startEditEntry(${e.id})" title="Bearbeiten" class="btn-small btn-blue" style="margin:0; margin-bottom:5px;">✏️</button>
+                <button onclick="deleteEntry(${e.id})" title="Löschen" class="btn-small btn-red" style="margin:0;">🗑️</button>
             </td>
         </tr>
     `;
@@ -1053,7 +1053,7 @@ function renderFitnessChart() {
 }
 
 function updateFitnessChart() {
-    const ctx = document.getElementById('chart-progress');
+    const ctx = document.getElementById('chart-fitness');
     const exerciseName = document.getElementById('prog-exercise').value;
     const metricLabel = document.getElementById('prog-metric').value;
 
