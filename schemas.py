@@ -48,8 +48,7 @@ class UserOut(BaseModel):
     email: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserUpdate(BaseModel):
@@ -70,8 +69,7 @@ class FieldSchema(BaseModel):
     data_type: str
     unit: Optional[str] = ""
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class CategoryCreate(BaseModel):
@@ -105,5 +103,4 @@ class EntryOut(BaseModel):
     note: Optional[str]
     data: Dict[str, Any]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
