@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
+    <!-- Login Screen -->
     <div id="login-screen">
         <div class="login-card">
             <div class="text-center mb-20">
@@ -30,6 +30,11 @@
             <label>Passwort</label>
             <input type="password" id="password" placeholder="Min. 8 Zeichen, Zahl & Großbuchstabe">
 
+            <div id="password-confirm-container" class="hidden">
+                <label>Passwort wiederholen</label>
+                <input type="password" id="password-confirm" placeholder="Passwort erneut eingeben">
+            </div>
+
             <button id="btn-login" onclick="handleLogin()" class="btn-blue">Einloggen</button>
             <button id="btn-register" onclick="handleRegister()" class="btn-green hidden">Kostenlos Registrieren</button>
             
@@ -40,10 +45,12 @@
         </div>
     </div>
 
+    <!-- App Screen -->
     <div id="app-screen" class="hidden">
+        <!-- Sidebar -->
         <aside>
-            <h2>Life-OS</h2>
-            
+            <h2 onclick="switchTab('homepage')" style="cursor: pointer;">Life-OS</h2>
+
             <nav>
                 <a href="#" onclick="switchTab('homepage')" id="nav-homepage" class="nav-item">🏠 Homepage</a>
             </nav>
@@ -51,29 +58,30 @@
             </nav>
 
             <button onclick="switchTab('create-category')" class="nav-item" style="color:var(--col-primary); border:1px dashed var(--col-primary); background:transparent;">+ Neue Kategorie</button>
-
             
             <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 10px 0;">
-            
+
             <nav>
                  <a href="#" onclick="switchTab('reporting')" id="nav-reporting" class="nav-item">📊 Reporting</a>
             </nav>
-            
+
             <div>
                 <p id="display-username"></p>
                 
-                <button onclick="switchTab('settings')" class="nav-item" style="margin-bottom: 5px;">
+                <button onclick="switchTab('settings')" class="nav-item" style="margin-bottom: 5px; text-align: center;">
                     Benutzerdaten ändern
                 </button>
                 
-                <button onclick="logout()" id="btn-logout" class="nav-item">
+                <button onclick="logout()" id="btn-logout" class="nav-item" style="text-align: center;">
                     Abmelden
                 </button>
             </div>
 
         </aside>
 
+        <!-- Main App Area -->
         <main>
+            <!-- Homepage View -->
             <div id="view-homepage" class="view-section hidden">
                 <header class="mb-20">
                     <h1 style="font-size: 2.5rem; margin-bottom: 10px;">
@@ -85,12 +93,14 @@
                 <div class="grid-2">
                     <div class="card">
                         <h3>Schnellstart</h3>
-                        <p>Wähle eine Kategorie aus der Seitenleiste links, um neue Einträge zu erfassen oder deinen Verlauf anzusehen.</p>
+                        <p>Wähle eine Kategorie aus der Seitenleiste links, um neue Einträge zu erfassen oder deinen Verlauf anzusehen. Mit den Knöpfen in der Verlaufsansicht kannst du Einträge bearbeiten oder löschen.</p>
+                        <p>Unter "+ Neue Kategorie" kannst du eine neue Kategorie anlegen.</p>
                     </div>
 
                     <div class="card">
-                        <h3>Auswertung</h3>
+                        <h3>Reporting</h3>
                         <p>Schau dir unter "Reporting" an, wie sich deine Daten entwickeln und behalte den Überblick.</p>
+                        <p>Du findest dort vorgefertigte Auswertungen. Die Möglichkeit Auswertungen für eigene Kategorien zu erstellen, ist noch in Entwicklung.</p>
                         <button onclick="switchTab('reporting')" class="btn-small btn-blue mt-15" style="width:auto;">Zum Reporting</button>
                     </div>
                 </div>
@@ -114,6 +124,7 @@
                     <br>
                         <div class="grid-2">
                             <div class="card">
+                                <!-- Entry Input -->
                                 <h3>Eintragen</h3>
                                 
                                 <div id="special-widget-container" class="mb-20"></div>
@@ -129,6 +140,7 @@
                                 <button id="btn-save-entry" onclick="saveEntry()" class="btn-blue mt-15">Speichern</button>
                             </div>
 
+                            <!-- Entry List -->
                             <div class="card">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                                     <h3 style="margin:0;">Verlauf</h3>
@@ -140,13 +152,14 @@
                                     </select>
                                 </div>
                                 <table>
-                                    <thead><tr><th>Details</th><th>Notiz</th><th>Zeit</th><th>Löschen</th></tr></thead>
+                                    <thead><tr><th>Details</th><th>Notiz</th><th>Zeit</th><th></th></tr></thead>
                                     <tbody id="list-generic"></tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
 
+                    <!-- Create Category View -->
                     <div id="view-create-category" class="view-section hidden">
                         <header><h1>Neue Kategorie erstellen</h1></header>
                         <div class="card" style="max-width:600px; margin-top:20px;">
@@ -165,9 +178,29 @@
                         </div>
                     </div>
 
+                    <!-- Reporting View -->
                     <div id="view-reporting" class="view-section hidden">
                         <header><h1>📊 Reporting</h1></header>
                         <br>
+
+                        <div class="card" style="margin-top: 20px;">
+                            <h3>Fitnessanalyse</h3>
+                            <p style="color:var(--text-muted); margin-bottom:15px;">Wähle eine Übung und einen Wert (z.B. Gewicht), um deinen Verlauf zu sehen.</p>
+                            
+                            <div style="display:flex; gap:10px; margin-bottom:15px; flex-wrap:wrap;">
+                                <select id="prog-exercise" onchange="updateFitnessChart()" style="flex:1; min-width:150px;">
+                                    <option value="">-- Übung wählen --</option>
+                                </select>
+                                
+                                <select id="prog-metric" onchange="updateFitnessChart()" style="flex:1; min-width:150px;">
+                                    <option value="">-- Wert wählen --</option>
+                                </select>
+                            </div>
+
+                            <div style="position: relative; height:300px; width:100%">
+                                <canvas id="chart-fitness"></canvas>
+                            </div>
+                        </div>
 
                         <div class="grid-2" style="margin-top: 20px;">
                             <div class="card">
@@ -184,9 +217,9 @@
                         <div class="card">
                             <canvas id="chart-balance"></canvas>
                         </div>
-
                     </div>
 
+                    <!-- Settings View -->
                     <div id="view-settings" class="view-section hidden">
                         <header>
                             <h1>Benutzerverwaltung</h1>
@@ -205,8 +238,9 @@
 
                                 <label>Neues Passwort (optional)</label>
                                 <input type="password" id="settings-password" placeholder="Leer lassen, wenn keine Änderung">
+                                <input type="password" id="settings-password-confirm" placeholder="Neues Passwort wiederholen">
 
-                                <button onclick="saveUserProfile()" class="btn-blue">Änderungen speichern</button>
+                                <button onclick="saveUserAccount()" class="btn-blue">Änderungen speichern</button>
                             </div>
 
                             <div class="card" style="max-width: 500px; border: 5px solid var(--col-delete);">

@@ -1,20 +1,31 @@
-// ==========================================
-// Konfiguration & Globale Variablen
-// ==========================================
-// Hinweis: main.py läuft standardmäßig auf Port 8000
-const API_BASE = ""; 
+/*=================================
+*Konfiguration and global variables
+*==================================
+*/
 
+// Set API_BASE to "" for same origin as the frontend
+const API_BASE = ""; 
 let authToken = sessionStorage.getItem('lifeos_token');
 let currentUser = sessionStorage.getItem('lifeos_user');
+
+// Data-Cache
 let categories = [];
 let entries = [];
-let currentCategory = null;
-let editingEntryId = null;   // Speichert die ID des Eintrags, den wir gerade bearbeiten
-let editingEntryDate = null; // Speichert das ursprüngliche Datum
 
-// ==========================================
-// Initialisierung
-// ==========================================
+// UI State
+let currentCategory = null;
+let editingEntryId = null;   // saves the entry_id being edited
+let editingEntryDate = null; // saves the original date of the entry being edited
+
+// Chart Instances
+let countChart;
+let sleepChart;
+let kcalChart;
+let fitnessChart;
+
+/*==============================
+Initialization and Start of App
+==============================*/
 document.addEventListener('DOMContentLoaded', () => {
     if (authToken && currentUser) {
         showAppScreen();
@@ -24,18 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function showLoginScreen() {
-    document.getElementById('login-screen').classList.remove('hidden');
-    document.getElementById('app-screen').classList.add('hidden');
-}
-
-function showAppScreen() {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app-screen').classList.remove('hidden');
-    document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
-}
-
-// Zentrale Fetch-Funktion
+/*==============================
+* API and Helper Functions
+*==============================*/
+// Centralized API fetch function with auth handling
 async function apiFetch(endpoint, options = {}) {
     if (!options.headers) options.headers = {};
     options.headers['Content-Type'] = 'application/json';
@@ -59,7 +62,7 @@ async function apiFetch(endpoint, options = {}) {
     }
 }
 
-// Hilfsfunktion: Datum in Format YYYY-MM-DDTHH:MM für Input-Feld umwandeln
+// Helper for local ISO string (without seconds)
 function toLocalISOString(dateObj) {
     const pad = (n) => n < 10 ? '0' + n : n;
     return dateObj.getFullYear() + '-' +
@@ -69,27 +72,47 @@ function toLocalISOString(dateObj) {
         pad(dateObj.getMinutes());
 }
 
-// ==========================================
-// Auth: Login & Register
-// ==========================================
-
+/*============================================
+* Authentication (Login, Registration, Logout)
+*============================================*/
 let isRegisterMode = false;
+
+// Show login or app screen
+function showLoginScreen() {
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('app-screen').classList.add('hidden');
+}
+
+function showAppScreen() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+    document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
+}
 
 function toggleAuthMode() {
     isRegisterMode = !isRegisterMode;
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-success').classList.add('hidden');
 
+    const emailContainer = document.getElementById('email-container');
+    const passConfirmContainer = document.getElementById('password-confirm-container');
+
     if (isRegisterMode) {
         document.getElementById('auth-title').innerText = "Konto erstellen";
+
         document.getElementById('email-container').classList.remove('hidden');
+        passConfirmContainer.classList.remove('hidden');
+
         document.getElementById('btn-login').classList.add('hidden');
         document.getElementById('btn-register').classList.remove('hidden');
         document.getElementById('txt-toggle').innerText = "Bereits ein Konto?";
         document.getElementById('link-toggle').innerText = "Anmelden";
     } else {
         document.getElementById('auth-title').innerText = "Willkommen zurück";
+
         document.getElementById('email-container').classList.add('hidden');
+        passConfirmContainer.classList.add('hidden');
+
         document.getElementById('btn-login').classList.remove('hidden');
         document.getElementById('btn-register').classList.add('hidden');
         document.getElementById('txt-toggle').innerText = "Noch kein Konto?";
@@ -104,7 +127,7 @@ async function handleLogin() {
 
     if (!name || !pass) return;
 
-    // Backend erwartet schemas.UserLogin: { name, password }
+    // Backend awaits schemas.UserLogin {name, password}
     const res = await fetch(API_BASE + '/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -130,16 +153,23 @@ async function handleRegister() {
     const name = document.getElementById('username').value;
     const mail = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
+    const passConfirm = document.getElementById('password-confirm').value;
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
 
-    if (!name || !mail || !pass) {
+    if (!name || !mail || !pass || !passConfirm) {
         errorEl.innerText = "Bitte alle Felder ausfüllen.";
         errorEl.classList.remove('hidden');
         return;
     }
 
-    // Backend erwartet schemas.UserRegister
+    if (pass !== passConfirm) {
+        errorEl.innerText = "Die Passwörter stimmen nicht überein!";
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    // Backend awaits schemas.UserRegister {name, email, password}
     const res = await fetch(API_BASE + '/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -153,7 +183,20 @@ async function handleRegister() {
         successEl.classList.remove('hidden');
         setTimeout(() => toggleAuthMode(), 1500);
     } else {
-        errorEl.innerText = data.detail || "Fehler beim Registrieren.";
+        let msg = "Fehler beim Registrieren.";
+
+        // Case 1: validationerror i.e. Array of errors from Pydantic
+        if (Array.isArray(data.detail)) {
+            // Take first error message
+            msg = data.detail[0].msg; 
+        } 
+        // Case 2: single error message from main.py
+        else if (data.detail) {
+            msg = data.detail;
+        }
+
+        errorEl.innerText = "Fehler: " + msg;
+        
         errorEl.classList.remove('hidden');
     }
 }
@@ -165,97 +208,17 @@ function logout() {
     showLoginScreen();
 }
 
-// ==========================================
-// Benutzerverwaltung (Settings)
-// ==========================================
-
-async function loadUserProfile() {
-    // Daten vom Server holen (GET /user existiert in main.py)
-    const res = await apiFetch('/user');
-    if (res && res.ok) {
-        const user = await res.json();
-        
-        // Formularfelder füllen
-        document.getElementById('settings-name').value = user.name;
-        document.getElementById('settings-email').value = user.email;
-        document.getElementById('settings-password').value = ''; // Passwort aus Sicherheit leer lassen
-    }
-}
-
-async function saveUserProfile() {
-    const newName = document.getElementById('settings-name').value;
-    const newEmail = document.getElementById('settings-email').value;
-    const newPass = document.getElementById('settings-password').value;
-
-    if (!newName || !newEmail) {
-        alert("Name und E-Mail dürfen nicht leer sein.");
-        return;
-    }
-
-    // Payload für UserUpdate Schema bauen
-    const payload = {
-        name: newName,
-        email: newEmail
-    };
-    
-    // Nur wenn Passwortfeld ausgefüllt wurde, senden wir es mit
-    if (newPass && newPass.trim() !== "") {
-        payload.password = newPass;
-    }
-
-    const res = await apiFetch('/user', {
-        method: 'PUT',
-        body: JSON.stringify(payload)
-    });
-
-    if (res && res.ok) {
-        const updatedUser = await res.json();
-        
-        // Session Storage & Anzeige aktualisieren
-        currentUser = updatedUser.name;
-        sessionStorage.setItem('lifeos_user', currentUser);
-        document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
-        
-        alert("Profil erfolgreich aktualisiert!");
-        document.getElementById('settings-password').value = ''; // Feld leeren
-    } else {
-        const err = await res.json();
-        alert("Fehler: " + (err.detail || "Konnte Profil nicht speichern"));
-    }
-}
-
-async function deleteUserAccount() {
-    const confirmName = prompt(`WARNUNG: Dies löscht deinen Account und ALLE Daten endgültig!\n\nBitte tippe deinen Benutzernamen ("${currentUser}") zur Bestätigung:`);
-
-    if (confirmName !== currentUser) {
-        alert("Abbruch: Name stimmte nicht überein.");
-        return;
-    }
-
-    const res = await apiFetch('/user', {
-        method: 'DELETE'
-    });
-
-    if (res && res.ok) {
-        alert("Account gelöscht. Auf Wiedersehen!");
-        logout();
-    } else {
-        alert("Fehler beim Löschen des Accounts.");
-    }
-}
-
-// ==========================================
-// Daten Laden
-// ==========================================
+/*==============================
+* Data Loading and Navigation
+*==============================*/
 async function loadData() {
-    // 1. ID sichern & Debugging
-    // Wir wandeln die ID in einen String um, um Typ-Probleme zu vermeiden
+    // Save current category ID to restore view later
     const savedId = currentCategory ? String(currentCategory.id) : null;
-    console.log("🔄 loadData: Versuche ID wiederherzustellen:", savedId);
+    console.log("Debug: savedID in loadData:", savedId);
 
     if (!authToken) return;
 
-    // 2. Daten neu laden
+    // Get categories and entries from database
     const catRes = await apiFetch('/categories/');
     if (catRes && catRes.ok) {
         categories = await catRes.json();
@@ -268,22 +231,23 @@ async function loadData() {
      
     renderSidebar();
 
-    // 3. Ansicht wiederherstellen
+    // Try to reopen the previously opened category
     let foundCategory = null;
 
     if (savedId) {
-        // Robuster Vergleich: Beides als String vergleichen
+        // Try to find category by saved ID
         foundCategory = categories.find(c => String(c.id) === savedId);
     }
 
     if (foundCategory) {
         openCategory(foundCategory);
     } else {
+        // Fallback: open homepage if no category found
         switchTab('homepage');
     }
 }
 
-
+// Render sidebar with categories of current user
 function renderSidebar() {
     const nav = document.getElementById('nav-container');
     nav.innerHTML = ''; 
@@ -300,251 +264,43 @@ function renderSidebar() {
     });
 }
 
-// ==========================================
-// Hauptansicht: Kategorie & Einträge
-// ==========================================
-function openCategory(cat) {
-    // RESET Edit Mode
-    editingEntryId = null;
-    editingEntryDate = null;
-    const btn = document.getElementById('btn-save-entry');
-    if(btn) btn.innerText = "Speichern";
+function switchTab(tabId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+    const target = document.getElementById('view-' + tabId);
+    if (target) target.classList.remove('hidden');
 
-    document.getElementById('entry-ts').value = toLocalISOString(new Date());
-
-    currentCategory = cat;
-    switchTab('generic');
-    
-    document.getElementById('gen-title').innerText = cat.name;
-    document.getElementById('gen-desc').innerText = cat.description;
-    
-    // Inputs bauen
-    const container = document.getElementById('gen-inputs-container');
-    container.innerHTML = '';
-    document.getElementById('entry-note').value = ''; // Notiz leeren
-
-    // Nutrition Widget prüfen
-    const widgetContainer = document.getElementById('special-widget-container');
-    widgetContainer.innerHTML = '';
-    if(cat.name.toLowerCase().includes('ernährung')) {
-        renderNutritionWidget(widgetContainer);
-    }
-
-    // Felder rendern
-    if(cat.fields && cat.fields.length > 0) {
-        cat.fields.forEach(field => {
-            const wrapper = document.createElement('div');
-            wrapper.style.marginBottom = '15px';
-            
-            const label = document.createElement('label');
-            label.innerText = field.unit ? `${field.label} (${field.unit})` : field.label;
-            label.style.display = 'block';
-            label.style.fontWeight = 'bold';
-            
-            const input = document.createElement('input');
-            input.type = field.data_type === 'number' ? 'number' : 'text';
-            input.className = 'gen-input'; 
-            input.dataset.label = field.label; // Wichtig für Mapping
-            input.placeholder = field.label;
-            
-            wrapper.appendChild(label);
-            wrapper.appendChild(input);
-            container.appendChild(wrapper);
-        });
-    } else {
-        container.innerHTML = '<p style="color:#888;">Keine Felder definiert.</p>';
-    }
-
-    renderEntryList();
-
-    // Sidebar Active State
+    // Sidebar Reset
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const activeBtn = document.getElementById('nav-cat-' + cat.id);
-    if(activeBtn) activeBtn.classList.add('active');
-}
 
-async function saveEntry() {
-    if (!currentCategory) return;
+    if (tabId === 'settings'){
+        loadUserProfile();
+        currentCategory = null;
 
-    const inputs = document.querySelectorAll('.gen-input');
-    const values = {};
-    let hasContent = false;
+    }else if (tabId === 'create-category') {
+        initCreateCategoryView();
+        currentCategory = null;
 
-    // --- NEU: Validierungsschleife ---
-    for (const input of inputs) {
-        const label = input.dataset.label;
-        
-        // 1. Prüfen auf Typ-Fehler (z.B. Text in einem Zahl-Feld)
-        // .badInput ist true, wenn der Browser Text im Feld hat, aber value="" liefert
-        if (input.validity && input.validity.badInput) {
-            alert(`Fehler im Feld "${label}": Der eingegebene Wert ist keine gültige Zahl!`);
-            input.focus(); // Cursor ins fehlerhafte Feld setzen
-            return; // Speichern abbrechen
-        }
+    } else if (tabId === 'reporting') {
+        renderReporting();
+        document.getElementById('nav-reporting').classList.add('active');
+        currentCategory = null;
 
-        const val = input.value.trim();
+    } else if (tabId === 'homepage') {
+        const btn = document.getElementById('nav-homepage');
+        if(btn) btn.classList.add('active');
+        currentCategory = null;
 
-        // 2. Wert übernehmen, wenn vorhanden
-        if (val !== '') {
-            values[label] = val;
-            hasContent = true;
+        //Show username on homepage
+        const nameElement = document.getElementById('home-user-name');
+        if (nameElement && currentUser) {
+            nameElement.innerText = currentUser;
         }
     }
-    // ---------------------------------
-
-    if (!hasContent) {
-        alert("Bitte mindestens ein Feld ausfüllen.");
-        return;
-    };
-
-    // NEU: Datum aus dem Feld lesen
-    const tsInput = document.getElementById('entry-ts').value;
-    let finalDate = tsInput;
-    if (!finalDate) {
-        finalDate = toLocalISOString(new Date());
-    };
-
-    // Payload bauen
-    const payload = {
-        category_id: currentCategory.id,
-        // Wenn wir bearbeiten, nimm das alte Datum, sonst JETZT
-        occurred_at: finalDate,
-        note: document.getElementById('entry-note').value,
-        values: values
-    };
-
-    let res;
-    
-    if (editingEntryId) {
-        // --- UPDATE (PUT) ---
-        res = await apiFetch('/entries/' + editingEntryId, {
-            method: 'PUT',
-            body: JSON.stringify(payload)
-        });
-    } else {
-        // --- CREATE (POST) ---
-        res = await apiFetch('/entries/', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-    }
-
-    if (res && res.ok) {
-        // Reset Inputs & Mode
-        inputs.forEach(i => i.value = '');
-        document.getElementById('entry-note').value = '';
-
-        // NEU: Nach Speichern Datum wieder auf "Jetzt" setzen für den nächsten Eintrag
-        document.getElementById('entry-ts').value = toLocalISOString(new Date());
-        
-        // Modus zurücksetzen
-        editingEntryId = null;
-        editingEntryDate = null;
-        document.getElementById('btn-save-entry').innerText = "Speichern";
-
-        await loadData(); // Tabelle neu laden
-    } else {
-        alert("Fehler beim Speichern.");
-    }
 }
 
-function startEditEntry(id) {
-    // Eintrag in der lokalen Liste finden
-    const entry = entries.find(e => e.id === id);
-    if (!entry) return;
-
-    // Globale Variablen setzen
-    editingEntryId = entry.id;
-
-    // Button Text ändern
-    document.getElementById('btn-save-entry').innerText = "Ändern ✅";
-
-    // Notiz füllen
-    document.getElementById('entry-note').value = entry.note || '';
-
-    // NEU: Zeitpunkt in das Feld laden
-    if (entry.occurred_at) {
-        const dateObj = new Date(entry.occurred_at);
-        document.getElementById('entry-ts').value = toLocalISOString(dateObj);
-    }
-
-    // Felder füllen
-    const inputs = document.querySelectorAll('.gen-input');
-    inputs.forEach(input => {
-        const label = input.dataset.label;
-        // Wenn der Eintrag Daten für dieses Label hat, einfügen
-        if (entry.data && entry.data[label] !== undefined) {
-            input.value = entry.data[label];
-        } else {
-            input.value = '';
-        }
-    });
-    
-    // Nach oben scrollen, damit der User sieht, wo er editiert
-    document.getElementById('gen-inputs-container').scrollIntoView({behavior: 'smooth'});
-}
-
-function renderEntryList() {
-    const tbody = document.getElementById('list-generic');
-    
-    // 1. Limit aus dem Dropdown holen
-    const limitInput = document.getElementById('entry-limit');
-    // Fallback auf 10, falls Element noch nicht geladen (Sicherheitshalber)
-    const limit = limitInput ? parseInt(limitInput.value) : 10;
-
-    // 2. Filtern: Nur Einträge dieser Kategorie
-    const catEntries = entries.filter(e => e.category_id === currentCategory.id);
-
-    // 3. Begrenzen der Anzeige (slice von 0 bis limit)
-    const displayedEntries = catEntries.slice(0, limit);
-
-    tbody.innerHTML = displayedEntries.map(e => {
-        // e.data enthält die Werte { "Gewicht": "80", ... }
-        let detailsHtml = '';
-        if (e.data) {
-            for (const [key, val] of Object.entries(e.data)) {
-                // --- NEU: Einheit suchen ---
-                // Wir schauen in den Feldern der aktuellen Kategorie, ob es eines mit diesem Label gibt
-                const fieldDef = currentCategory.fields.find(f => f.label === key);
-                // Wenn Feld gefunden und Einheit existiert, dann nutzen, sonst leerer String
-                const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
-                // ---------------------------
-
-                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem;">
-                    <b>${key}:</b> ${val}${unit}
-                </span> `;
-            }
-        }
-
-        const date = new Date(e.occurred_at);
-        const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-        return `
-        <tr>
-            <td>${detailsHtml}</td>
-            <td style="font-style:italic; color:#666;">${e.note || '-'}</td>
-            <td style="font-size:0.8rem;">${timeStr}</td>
-            <td>
-                <button onclick="startEditEntry(${e.id})" class="btn-small btn-blue" style="margin:0; margin-bottom:5px;">✏️</button>
-                <button onclick="deleteEntry(${e.id})" class="btn-small btn-red" style="margin:0;">🗑️</button>
-            </td>
-        </tr>
-    `;
-    }).join('');
-}
-
-async function deleteEntry(id) {
-    if(!confirm("Eintrag wirklich löschen?")) return;
-    
-    const res = await apiFetch('/entries/' + id, { method: 'DELETE' });
-    if(res && res.ok) {
-        await loadData();
-    }
-}
-
-// ==========================================
-// Kategorie Erstellen
-// ==========================================
+/*=============================
+* Category Management
+*==============================*/
 function initCreateCategoryView() {
     document.getElementById('new-cat-name').value = '';
     document.getElementById('new-cat-desc').value = '';
@@ -557,13 +313,11 @@ function addFieldRow() {
     const div = document.createElement('div');
     div.className = 'field-row';
     
-    // WICHTIG: align-items: stretch sorgt für gleiche Höhe
+    // Align items horizontally for a better layout
     div.style.cssText = "display:flex; gap:10px; margin-bottom:10px; align-items:stretch;";
-    
-    // Style-Variable für Inputs/Selects (WICHTIG: box-sizing: border-box)
-    // Damit wird Padding nicht zur Höhe addiert, sondern ist inklusive.
     const fieldStyle = "padding:10px; border:1px solid #ddd; border-radius:8px; box-sizing:border-box; height:42px;"; 
 
+    // Inner HTML for the field row
     div.innerHTML = `
         <input type="text" class="f-label" placeholder="Feldname (z.B. Einnahmen)" 
             style="flex:2; ${fieldStyle}">
@@ -604,7 +358,7 @@ async function createCategory() {
 
     if (fields.length === 0) return alert("Mindestens ein Feld definieren.");
 
-    // Backend: CategoryCreate Schema
+    // Payload for backend (CategoryCreate Schema)
     const payload = {
         name: name,
         description: desc,
@@ -618,7 +372,7 @@ async function createCategory() {
 
     if (res && res.ok) {
         await loadData();
-        // Zurück zur letzten (neuen) Kategorie springen
+        // Open the newly created category (last in the list)
         if (categories.length > 0) {
             openCategory(categories[categories.length - 1]);
         }
@@ -630,14 +384,14 @@ async function createCategory() {
 async function editCurrentCategory() {
     if(!currentCategory) return;
 
-    // Aktuelle Werte als Vorschlag anzeigen
+    // Prompt for new name and description with current values as default
     const newName = prompt("Neuer Name für die Kategorie:", currentCategory.name);
     if (newName === null) return; // Abbrechen gedrückt
 
     const newDesc = prompt("Neue Beschreibung:", currentCategory.description);
     if (newDesc === null) return; 
 
-    // Payload für Backend (CategoryUpdate Schema)
+    // Payload for backend (CategoryUpdate Schema)
     const payload = {
         name: newName,
         description: newDesc
@@ -650,12 +404,13 @@ async function editCurrentCategory() {
 
     if (res && res.ok) {
         alert("Kategorie aktualisiert!");
-        await loadData(); // Alles neu laden (Sidebar & Titel aktualisieren sich dann)
+        await loadData(); // Reload data to see changes
     } else {
         alert("Fehler beim Aktualisieren.");
     }
 }
 
+// DELETE current category
 async function deleteCurrentCategory() {
     if (!currentCategory) return;
 
@@ -663,95 +418,427 @@ async function deleteCurrentCategory() {
     
     if (!confirm(confirmMsg)) return;
 
-    // API Aufruf zum Löschen
+    // API call to delete category
     const res = await apiFetch('/categories/' + currentCategory.id, {
         method: 'DELETE'
     });
 
     if (res && res.ok) {
-        // Erfolg: Auswahl zurücksetzen und neu laden
+        // Reset currentCategory
         currentCategory = null; 
         alert("Kategorie gelöscht.");
         await loadData(); 
-        // loadData() springt automatisch zur Homepage oder zur ersten verbleibenden Kategorie
     } else {
         alert("Fehler beim Löschen der Kategorie.");
     }
     loadData();
 }
 
-// ==========================================
-// Reporting & Charts
-// ==========================================
-let myChart;
-let sleepChart;
-let kcalChart;
+/*=============================
+* Entry Management
+*==============================*/
+// Open a category view to show entries
+function openCategory(cat) {
+    // RESET Edit Mode
+    editingEntryId = null;
+    editingEntryDate = null;
+    const btn = document.getElementById('btn-save-entry');
+    if(btn) btn.innerText = "Speichern";
 
-function renderReporting() {
-    const ctx = document.getElementById('chart-balance');
-    if(!ctx) return;
+    document.getElementById('entry-ts').value = toLocalISOString(new Date());
+
+    currentCategory = cat;
+    switchTab('generic');
     
-    // Daten aggregieren: Anzahl Einträge pro Kategorie
-    const counts = {};
-    const catNames = {};
-
-    // Map ID -> Name
-    categories.forEach(c => catNames[c.id] = c.name);
-
-    entries.forEach(e => {
-        const name = catNames[e.category_id] || "Unbekannt";
-        counts[name] = (counts[name] || 0) + 1;
-    });
-
-    if(myChart) myChart.destroy();
+    document.getElementById('gen-title').innerText = cat.name;
+    document.getElementById('gen-desc').innerText = cat.description;
     
-    myChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(counts),
-            datasets: [{
-                label: 'Anzahl Einträge',
-                data: Object.values(counts),
-                backgroundColor: '#3b82f6',
-                borderRadius: 8
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+    // Render input fields
+    const container = document.getElementById('gen-inputs-container');
+    container.innerHTML = '';
+    document.getElementById('entry-note').value = ''; // Reset note field
+
+    // Show OpenFoodFacts API widget for "ernährung" category
+    const widgetContainer = document.getElementById('special-widget-container');
+    widgetContainer.innerHTML = '';
+    if(cat.name.toLowerCase().includes('ernährung')) {
+        renderNutritionWidget(widgetContainer);
+    }
+
+    // Dynamically create input fields based on category definition
+    if(cat.fields && cat.fields.length > 0) {
+        cat.fields.forEach(field => {
+            const wrapper = document.createElement('div');
+            wrapper.style.marginBottom = '15px';
+            
+            const label = document.createElement('label');
+            label.innerText = field.unit ? `${field.label} (${field.unit})` : field.label;
+            label.style.display = 'block';
+            label.style.fontWeight = 'bold';
+            
+            const input = document.createElement('input');
+            input.type = field.data_type === 'number' ? 'number' : 'text';
+            input.className = 'gen-input'; 
+            input.dataset.label = field.label;
+            input.placeholder = field.label;
+            
+            // If field label is "Übung", add datalist for correct suggestions
+            if (field.label === "Übung") {
+                input.type = "text";
+                
+                // Fetch all existing exercises from entries for this category
+                const existingExercises = new Set();
+                
+                entries.forEach(e => {
+                    // Only consider entries of the current category (fitness)
+                    if (e.category_id === cat.id && e.data && e.data[field.label]) {
+                        existingExercises.add(e.data[field.label]);
+                    }
+                });
+
+                // Set up datalist id
+                const listId = "list-" + field.label + "-" + cat.id;
+                input.setAttribute("list", listId);
+
+                // Create datalist element
+                const datalist = document.createElement('datalist');
+                datalist.id = listId;
+                
+                // Add options to datalist
+                existingExercises.forEach(val => {
+                    const option = document.createElement('option');
+                    option.value = val;
+                    datalist.appendChild(option);
+                });
+
+                wrapper.appendChild(datalist);
+            } else {
+                // Standard Verhalten für andere Felder
+                input.type = field.data_type === 'number' ? 'number' : 'text';
             }
-        }
-    });
 
-    renderKcalChart();
-    renderSleepChart();
+            // --- NEUE LOGIK ENDE ---
+            
+            wrapper.appendChild(label);
+            wrapper.appendChild(input);
+            container.appendChild(wrapper);
+        });
+    } else {
+        container.innerHTML = '<p style="color:#888;">Keine Felder definiert.</p>';
+    }
+
+    renderEntryList();
+
+    // Show active category in sidebar as active
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const activeBtn = document.getElementById('nav-cat-' + cat.id);
+    if(activeBtn) activeBtn.classList.add('active');
 }
 
-// --- Chart 1: Schlafdauer (Letzte 5 Tage) ---
-// --- Chart 1: Schlafdauer (Letzte 5 Tage) ---
+// Show nutrition widget for food category
+function renderNutritionWidget(container) {
+    container.innerHTML = `
+        <div style="background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:20px;">
+            <h4 style="margin-top:0; color:#166534;">Produktsuche (OpenFoodFacts)</h4>
+            <div style="display:flex; gap:10px;">
+                <input id="api-search-input" type="text" placeholder="z.B. Vollmilch, Salami..." style="flex:1; margin:0;">
+                <button onclick="runApiSearch()" class="btn-green" style="width:auto; margin:0;">Suchen</button>
+            </div>
+            <p id="api-msg" style="margin:5px 0 0 0; font-size:0.85rem; color:#666;">Hinweis: Die API ist nicht zuverlässig. Etwas ausprobieren ist dennoch empfehlenswert ;)</p>
+        </div>
+    `;
+}
+
+// Run OpenFoodFacts API search
+async function runApiSearch() {
+    const q = document.getElementById('api-search-input').value;
+    const msg = document.getElementById('api-msg');
+    if(!q) return;
+    msg.innerText = "Suche...";
+    
+    try {
+        const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=1`);
+        const data = await res.json();
+
+        if(data.products && data.products.length > 0) {
+            const p = data.products[0];
+            msg.innerText = `Gefunden: ${p.product_name}`;
+            
+            // Get kcal per 100g
+            const kcal100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'];
+            
+            let weightInput = null;
+            let energyInput = null;
+
+            // Find inputs
+            const inputs = document.querySelectorAll('.gen-input');
+            inputs.forEach(input => {
+                const lbl = input.dataset.label.toLowerCase();
+                
+                // Product Name
+                if(lbl.includes('lebensmittel')) {
+                    input.value = p.product_name || "";
+                }
+
+                // Weight
+                if(lbl.includes('gewicht')) {
+                    weightInput = input;
+                }
+
+                // Energy / Calories
+                if(lbl.includes('energie')) {
+                    energyInput = input;
+                }
+            });
+
+            // Set values and calculate based on weight
+            if(energyInput && kcal100) {
+                // Store kcal per 100g in dataset for later calculations
+                energyInput.dataset.kcalPer100 = kcal100;
+
+                if(weightInput) {
+                    // Standard: 100g
+                    weightInput.value = 100;
+                    energyInput.value = kcal100; 
+
+                    // Event-Listener: calculate kcal based on weight when changed
+                    weightInput.oninput = function() {
+                        const weight = parseFloat(this.value);
+                        const baseKcal = parseFloat(energyInput.dataset.kcalPer100);
+                        
+                        if(!isNaN(weight) && !isNaN(baseKcal)) {
+                            const result = (weight / 100) * baseKcal;
+                            energyInput.value = Math.round(result);
+                        }
+                    };
+                } else {
+                    // If no weight input, just set kcal per 100g
+                    energyInput.value = kcal100;
+                }
+            }
+        // If no products were found
+        } else {
+            msg.innerText = "Nichts gefunden.";
+        }
+    } catch(e) {
+        console.error(e);
+        msg.innerText = "Fehler bei der API-Suche.";
+    }
+}
+
+async function saveEntry() {
+    if (!currentCategory) return;
+
+    const inputs = document.querySelectorAll('.gen-input');
+    const values = {};
+    let hasContent = false;
+
+    // Input validation for correct data type
+    for (const input of inputs) {
+        const label = input.dataset.label;
+        
+        // input.validity.badInput is true if there is a type mismatch (e.g., non-number in number field)
+        if (input.validity && input.validity.badInput) {
+            alert(`Fehler im Feld "${label}": Der eingegebene Wert ist keine gültige Zahl!`);
+            input.focus(); // set focus to the invalid input
+            return; // abort saving
+        }
+
+        const val = input.value.trim();
+
+        // Only include non-empty values
+        if (val !== '') {
+            values[label] = val;
+            hasContent = true;
+        }
+    }
+
+    if (!hasContent) {
+        alert("Bitte mindestens ein Feld ausfüllen.");
+        return;
+    };
+
+    // Leave timestamp as it is if editing, else set to now
+    const tsInput = document.getElementById('entry-ts').value;
+    let finalDate = tsInput;
+    if (!finalDate) {
+        finalDate = toLocalISOString(new Date());
+    };
+
+    // Build payload for backend
+    const payload = {
+        category_id: currentCategory.id,
+        occurred_at: finalDate,
+        note: document.getElementById('entry-note').value,
+        values: values
+    };
+
+    let res;
+    
+    // Differentiate between CREATE and UPDATE
+    if (editingEntryId) {
+        // UPDATE (PUT)
+        res = await apiFetch('/entries/' + editingEntryId, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+    } else {
+        // CREATE (POST)
+        res = await apiFetch('/entries/', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    }
+
+    if (res && res.ok) {
+        // Reset Inputs & Mode if saved successfully
+        inputs.forEach(i => i.value = '');
+        document.getElementById('entry-note').value = '';
+
+        // Set timestamp to now for new entries
+        document.getElementById('entry-ts').value = toLocalISOString(new Date());
+        
+        // Reset edit mode
+        editingEntryId = null;
+        editingEntryDate = null;
+        document.getElementById('btn-save-entry').innerText = "Speichern";
+
+        await loadData(); // Reload data to see changes
+    } else {
+        alert("Fehler beim Speichern.");
+    }
+}
+
+function startEditEntry(id) {
+    // Search for the entry by ID in the local entries array
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+
+    // Set global editingEntryId
+    editingEntryId = entry.id;
+
+    // Change button text to show edit mode
+    document.getElementById('btn-save-entry').innerText = "Ändern ✅";
+
+    // Load note
+    document.getElementById('entry-note').value = entry.note || '';
+
+    // Set timestamp as the entry's occurred_at
+    if (entry.occurred_at) {
+        const dateObj = new Date(entry.occurred_at);
+        document.getElementById('entry-ts').value = toLocalISOString(dateObj);
+    }
+
+    // Fill in input fields with existing data
+    const inputs = document.querySelectorAll('.gen-input');
+    inputs.forEach(input => {
+        const label = input.dataset.label;
+        // Wenn der Eintrag Daten für dieses Label hat, einfügen
+        if (entry.data && entry.data[label] !== undefined) {
+            input.value = entry.data[label];
+        } else {
+            input.value = '';
+        }
+    });
+    
+    // Scroll to inputs
+    document.getElementById('gen-inputs-container').scrollIntoView({behavior: 'smooth'});
+}
+
+// DELETE an entry by ID
+async function deleteEntry(id) {
+    if(!confirm("Eintrag wirklich löschen?")) return;
+    
+    const res = await apiFetch('/entries/' + id, { method: 'DELETE' });
+    if(res && res.ok) {
+        await loadData();
+    }
+}
+
+// Render the list of entries for the current category
+function renderEntryList() {
+    const tbody = document.getElementById('list-generic');
+    
+    // Read limit from input dropdown
+    const limitInput = document.getElementById('entry-limit');
+    // Fallback to 10 if not found
+    const limit = limitInput ? parseInt(limitInput.value) : 10;
+
+    // Only show entries of the current category
+    const catEntries = entries.filter(e => e.category_id === currentCategory.id);
+
+    // Sort by occurred_at descending and slice at limit
+    const displayedEntries = catEntries.slice(0, limit);
+
+    tbody.innerHTML = displayedEntries.map(e => {
+        // e.data is an object with key-value pairs
+        let detailsHtml = '';
+        if (e.data) {
+            for (const [key, val] of Object.entries(e.data)) {
+                // Search for field definition in current category to get unit
+                const fieldDef = currentCategory.fields.find(f => f.label === key);
+                // If fieldDef has unit, append it, if not, leave empty
+                const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
+
+                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem;">
+                    <b>${key}:</b> ${val}${unit}
+                </span> `;
+            }
+        }
+
+        // Format occurred_at date to local time
+        const date = new Date(e.occurred_at);
+        const timeStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+        return `
+        <tr>
+            <td>${detailsHtml}</td>
+            <td style="font-style:italic; color:#666;">${e.note || '-'}</td>
+            <td style="font-size:0.8rem;">${timeStr}</td>
+            <td>
+                <button onclick="startEditEntry(${e.id})" title="Bearbeiten" class="btn-small btn-blue" style="margin:0; margin-bottom:5px;">✏️</button>
+                <button onclick="deleteEntry(${e.id})" title="Löschen" class="btn-small btn-red" style="margin:0;">🗑️</button>
+            </td>
+        </tr>
+    `;
+    }).join('');
+}
+
+/*=============================
+* Reporting and Charts
+*==============================*/
+
+function renderReporting() {
+    
+    renderEntryCountChart();
+    renderKcalChart();
+    renderSleepChart();
+    renderFitnessChart();
+}
+
+// Chart 1: Sleeping hours past 5 days
 function renderSleepChart() {
     const ctx = document.getElementById('chart-sleep');
     if (!ctx) return;
 
-    // 1. Kategorie "Schlaf" finden
+    // Find category "schlaf"
     const sleepCat = categories.find(c => c.name.toLowerCase().includes('schlaf'));
     
     const labels = [];
     const dataPoints = [];
     const today = new Date();
 
-    // Letzte 5 Tage durchlaufen
+    // go through last 5 days
     for (let i = 4; i >= 0; i--) {
         const d = new Date();
         d.setDate(today.getDate() - i);
         const dateStr = d.toISOString().split('T')[0]; 
         
-        // Label (z.B. "Mo, 12.05")
+        // set label
         const label = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
         labels.push(label);
 
-        // Daten summieren
+        // sum up sleeping hours for that day
         let hours = 0;
         if (sleepCat) {
             const daysEntries = entries.filter(e => 
@@ -770,10 +857,9 @@ function renderSleepChart() {
         dataPoints.push(hours);
     }
 
-    // --- NEU: Durchschnitt berechnen ---
-    // Wir filtern 0-Werte NICHT heraus, da sie den Schnitt drücken (kein Schlaf eingetragen = schlecht)
+    // Calculate average sleep hours over the past 5 days
     const totalHours = dataPoints.reduce((a, b) => a + b, 0);
-    const avgHours = (totalHours / 5).toFixed(1); // Eine Nachkommastelle
+    const avgHours = (totalHours / 5).toFixed(1);
 
     if (sleepChart) sleepChart.destroy();
 
@@ -792,32 +878,31 @@ function renderSleepChart() {
             responsive: true,
             scales: { y: { beginAtZero: true, suggestedMax: 8 } },
             plugins: {
-                // Titel aktivieren und Durchschnitt anzeigen
                 title: {
                     display: true,
                     text: `Schlaf (Letzte 5 Tage) - Ø ${avgHours} Std.`,
                     font: { size: 16 }
                 },
-                legend: { display: false } // Legende ausblenden, Titel reicht
+                legend: { display: false } // Legend can be omitted
             }
         }
     });
 }
 
-// --- Chart 2: Kalorienbilanz (Heute) ---
-// --- Chart 2: Kalorienbilanz (Heute) ---
+
+// Chart 2: Calorie balance today
 function renderKcalChart() {
     const ctx = document.getElementById('chart-kcal');
     if (!ctx) return;
 
-    // Kategorien finden
+    // Find cat "ernährung" and "fitness"
     const foodCat = categories.find(c => c.name.toLowerCase().includes('ernährung') || c.name.toLowerCase().includes('essen'));
     const fitCat = categories.find(c => c.name.toLowerCase().includes('fitness') || c.name.toLowerCase().includes('sport'));
 
-    // Datum Heute
+    // Set today's date string
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Hilfsfunktion
+    // Sum up kcal for a given category today
     const sumKcal = (cat) => {
         if (!cat) return 0;
         let sum = 0;
@@ -839,9 +924,9 @@ function renderKcalChart() {
     const kcalIn = sumKcal(foodCat);
     const kcalOut = sumKcal(fitCat);
 
-    // --- NEU: Differenz berechnen ---
+    // calculate balance
     const balance = kcalIn - kcalOut;
-    // Text formatieren: +200 oder -150
+    // format balance with + or - sign
     const sign = balance > 0 ? '+' : ''; 
     const balanceText = `${sign}${balance}`;
 
@@ -862,142 +947,286 @@ function renderKcalChart() {
             indexAxis: 'y',
             scales: { x: { beginAtZero: true } },
             plugins: {
-                // Titel aktivieren und Bilanz anzeigen
                 title: {
                     display: true,
                     text: `Kalorien Heute (Bilanz: ${balanceText} kcal)`,
                     font: { size: 16 }
                 },
-                legend: { display: false }
+                legend: { display: false } // Legend can be omitted
             }
         }
     });
 }
 
-// ==========================================
-// Navigation & Extras
-// ==========================================
-function switchTab(tabId) {
-    document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-    const target = document.getElementById('view-' + tabId);
-    if (target) target.classList.remove('hidden');
+// Chart 3: Count of entries per category
+function renderEntryCountChart() {
+const ctx = document.getElementById('chart-balance');
+    if(!ctx) return;
+    
+    // Calculate counts per category
+    const counts = {};
+    const catNames = {};
 
-    // Sidebar Reset
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    // Map category IDs to names
+    categories.forEach(c => catNames[c.id] = c.name);
 
-    if (tabId === 'settings'){
-        loadUserProfile();
-        currentCategory = null;
+    // Count entries per category
+    entries.forEach(e => {
+        const name = catNames[e.category_id] || "Unbekannt";
+        counts[name] = (counts[name] || 0) + 1;
+    });
 
-    }else if (tabId === 'create-category') {
-        initCreateCategoryView();
-        currentCategory = null;
+    if(countChart) countChart.destroy();
 
-    } else if (tabId === 'reporting') {
-        renderReporting();
-        document.getElementById('nav-reporting').classList.add('active');
-        currentCategory = null;
-
-    } else if (tabId === 'homepage') {
-        const btn = document.getElementById('nav-homepage');
-        if(btn) btn.classList.add('active');
-        currentCategory = null;
-
-        // NEU: Benutzernamen in die Begrüßung einfügen
-        const nameElement = document.getElementById('home-user-name');
-        if (nameElement && currentUser) {
-            nameElement.innerText = currentUser;
+    countChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(counts),
+            datasets: [{
+                label: 'Anzahl Einträge',
+                data: Object.values(counts),
+                backgroundColor: '#3b82f6',
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
         }
+    });
+}
+
+// Chart 4: Fitness exercises over past 7 days
+function renderFitnessChart() {
+    const exerciseSelect = document.getElementById('prog-exercise');
+    const metricSelect = document.getElementById('prog-metric');
+    
+    // 1. Fitness-Kategorie finden (sucht nach "fitness" oder "sport" im Namen)
+    const fitCat = categories.find(c => {
+        const n = c.name.toLowerCase();
+        return n.includes('fitness') || n.includes('sport') || n.includes('training');
+    });
+
+    if (!fitCat) {
+        exerciseSelect.innerHTML = '<option>Keine Fitness-Kategorie gefunden</option>';
+        return;
+    }
+
+    // 2. Alle eindeutigen Übungsnamen sammeln
+    // Wir gehen davon aus, dass das Feld für den Namen "Übung" heißt (siehe dein vorheriges Feature)
+    const exerciseNames = new Set();
+    const relevantEntries = entries.filter(e => e.category_id === fitCat.id);
+
+    relevantEntries.forEach(e => {
+        if (e.data && e.data['Übung']) {
+            exerciseNames.add(e.data['Übung']);
+        }
+    });
+
+    // 3. Übungs-Dropdown befüllen
+    exerciseSelect.innerHTML = '<option value="">-- Übung wählen --</option>';
+    Array.from(exerciseNames).sort().forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.innerText = name;
+        exerciseSelect.appendChild(opt);
+    });
+
+    // 4. Metrik-Dropdown befüllen (nur Zahlenfelder aus der Kategorie-Definition)
+    // Wir schauen in die Felder-Definition der Kategorie
+    metricSelect.innerHTML = '<option value="">-- Wert wählen --</option>';
+    fitCat.fields.forEach(f => {
+        // Wir wollen nur Zahlen plotten (z.B. Gewicht, Dauer), keine Texte
+        if (f.data_type === 'number') {
+            const opt = document.createElement('option');
+            opt.value = f.label;
+            opt.innerText = f.unit ? `${f.label} (${f.unit})` : f.label;
+            
+            // Standard-Auswahl: Falls es "Gewicht" gibt, wähle das vor
+            if (f.label.toLowerCase().includes('gewicht')) opt.selected = true;
+            
+            metricSelect.appendChild(opt);
+        }
+    });
+}
+
+function updateFitnessChart() {
+    const ctx = document.getElementById('chart-fitness');
+    const exerciseName = document.getElementById('prog-exercise').value;
+    const metricLabel = document.getElementById('prog-metric').value;
+
+    if (!ctx) return;
+    
+    // Wenn nichts ausgewählt ist, leeres Chart oder Abbruch
+    if (!exerciseName || !metricLabel) {
+        if (fitnessChart) fitnessChart.destroy();
+        return;
+    }
+
+    // 1. Daten filtern
+    // Wir brauchen die Fitness-Kategorie nochmal
+    const fitCat = categories.find(c => {
+        const n = c.name.toLowerCase();
+        return n.includes('fitness') || n.includes('sport') || n.includes('training');
+    });
+    if(!fitCat) return;
+
+    // Filtere alle Einträge dieser Kategorie, die die gewählte Übung und den gewählten Wert haben
+    let dataPoints = entries.filter(e => 
+        e.category_id === fitCat.id && 
+        e.data && 
+        e.data['Übung'] === exerciseName &&
+        e.data[metricLabel] !== undefined &&
+        e.data[metricLabel] !== ""
+    );
+
+    // Sortiere nach Datum (älteste zuerst) für korrekten Linienverlauf
+    dataPoints.sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at));
+
+    // 2. Daten für Chart.js aufbereiten
+    const labels = dataPoints.map(e => {
+        const d = new Date(e.occurred_at);
+        return d.toLocaleDateString(); // X-Achse: Datum
+    });
+    
+    const values = dataPoints.map(e => parseFloat(e.data[metricLabel])); // Y-Achse: Wert
+
+    // 3. Chart zeichnen
+    if (fitnessChart) fitnessChart.destroy();
+
+    fitnessChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `${exerciseName} - ${metricLabel}`,
+                data: values,
+                borderColor: '#0d6efd', // Primary Blue
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                borderWidth: 2,
+                tension: 0.3, // Macht die Linie etwas kurvig/smooth
+                pointRadius: 4,
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#0d6efd',
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false, // Bei Gewicht ist 0 meist uninteressant
+                    grid: { borderDash: [5, 5] }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { display: true },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y + " " + (metricLabel.includes('Gewicht') ? 'kg' : '');
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/*=============================
+* User Settings
+*==============================*/
+async function loadUserAccount() {
+    // Fetch user data from backend
+    const res = await apiFetch('/user');
+    if (res && res.ok) {
+        const user = await res.json();
+        
+        // Fill in the form
+        document.getElementById('settings-name').value = user.name;
+        document.getElementById('settings-email').value = user.email;
+        document.getElementById('settings-password').value = ''; // leave password empty for security reasons
     }
 }
 
-// OpenFoodFacts Widget (bleibt gleich, hilft beim Ausfüllen)
-function renderNutritionWidget(container) {
-    container.innerHTML = `
-        <div style="background:#f0fdf4; padding:15px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:20px;">
-            <h4 style="margin-top:0; color:#166534;">Produktsuche (OpenFoodFacts)</h4>
-            <div style="display:flex; gap:10px;">
-                <input id="api-search-input" type="text" placeholder="z.B. Vollmilch, Salami..." style="flex:1; margin:0;">
-                <button onclick="runApiSearch()" class="btn-green" style="width:auto; margin:0;">Suchen</button>
-            </div>
-            <p id="api-msg" style="margin:5px 0 0 0; font-size:0.85rem; color:#666;">Hinweis: Die API ist nicht zuverlässig. Etwas rumprobieren ist empfehlenswert ;)</p>
-        </div>
-    `;
+// Update user account 
+async function saveUserAccount() {
+    const newName = document.getElementById('settings-name').value;
+    const newEmail = document.getElementById('settings-email').value;
+    const newPass = document.getElementById('settings-password').value;
+    const newPassConfirm = document.getElementById('settings-password-confirm').value;
+
+    if (!newName || !newEmail) {
+        alert("Name und E-Mail dürfen nicht leer sein.");
+        return;
+    }
+
+    if (newPass && newPass !== "") {
+        if (newPass !== newPassConfirm) {
+            alert("Die neuen Passwörter stimmen nicht überein.");
+            return; // Abbruch
+        }
+    }
+
+    // Build payload for user update schema
+    const payload = {
+        name: newName,
+        email: newEmail
+    };
+    
+    // Send password only if changed
+    if (newPass && newPass.trim() !== "") {
+        payload.password = newPass;
+    }
+
+    const res = await apiFetch('/user', {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+    });
+
+    if (res && res.ok) {
+        const updatedUser = await res.json();
+        
+        // Update currentUser if name changed
+        currentUser = updatedUser.name;
+        // Set session storage
+        sessionStorage.setItem('lifeos_user', currentUser);
+        //Update displayed username
+        document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
+        
+        alert("Profil erfolgreich aktualisiert!");
+        document.getElementById('settings-password').value = '';
+        document.getElementById('settings-password-confirm').value = '';
+        
+    } else {
+        const err = await res.json();
+        alert("Fehler: " + (err.detail || "Konnte Profil nicht speichern"));
+    }
 }
 
-async function runApiSearch() {
-    const q = document.getElementById('api-search-input').value;
-    const msg = document.getElementById('api-msg');
-    if(!q) return;
-    msg.innerText = "Suche...";
-    
-    try {
-        const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=1`);
-        const data = await res.json();
+// DELETE user account
+async function deleteUserAccount() {
+    const confirmName = prompt(`WARNUNG: Dies löscht deinen Account und ALLE Daten endgültig!\n\nBitte tippe deinen Benutzernamen ("${currentUser}") zur Bestätigung:`);
 
-        if(data.products && data.products.length > 0) {
-            const p = data.products[0];
-            msg.innerText = `Gefunden: ${p.product_name}`;
-            
-            // Nährwerte holen (Energie in kcal)
-            const kcal100 = p.nutriments['energy-kcal_100g'] || p.nutriments['energy-kcal'];
-            
-            let weightInput = null;
-            let energyInput = null;
+    if (confirmName !== currentUser) {
+        alert("Abbruch: Name stimmte nicht überein.");
+        return;
+    }
 
-            // Inputs durchsuchen
-            const inputs = document.querySelectorAll('.gen-input');
-            inputs.forEach(input => {
-                const lbl = input.dataset.label.toLowerCase();
-                
-                // 1. Name: Prüft auf "Lebensmittel" (dein Wunsch) oder "Mahlzeit" (Standard in main.py)
-                if(lbl.includes('lebensmittel') || lbl.includes('mahlzeit')) {
-                    input.value = p.product_name || "";
-                }
+    const res = await apiFetch('/user', {
+        method: 'DELETE'
+    });
 
-                // 2. Gewicht
-                if(lbl.includes('gewicht')) {
-                    weightInput = input;
-                }
-
-                // 3. Energie
-                if(lbl.includes('energie')) {
-                    energyInput = input;
-                }
-            });
-
-            // Werte setzen und Berechnung starten
-            if(energyInput && kcal100) {
-                // Wir speichern den 100g-Basiswert am Element
-                energyInput.dataset.kcalPer100 = kcal100;
-
-                if(weightInput) {
-                    // Standard: 100g
-                    weightInput.value = 100;
-                    energyInput.value = kcal100; 
-
-                    // Event-Listener: Berechnet Energie neu, wenn Gewicht geändert wird
-                    weightInput.oninput = function() {
-                        const weight = parseFloat(this.value);
-                        const baseKcal = parseFloat(energyInput.dataset.kcalPer100);
-                        
-                        if(!isNaN(weight) && !isNaN(baseKcal)) {
-                            // Formel: (Gewicht / 100) * EnergiePro100
-                            const result = (weight / 100) * baseKcal;
-                            energyInput.value = Math.round(result);
-                        }
-                    };
-                } else {
-                    // Fallback, falls kein Gewichtsfeld da ist
-                    energyInput.value = kcal100;
-                }
-            }
-
-        } else {
-            msg.innerText = "Nichts gefunden.";
-        }
-    } catch(e) {
-        console.error(e);
-        msg.innerText = "Fehler bei der API-Suche.";
+    if (res && res.ok) {
+        alert("Account gelöscht. Auf Wiedersehen!");
+        logout();
+    } else {
+        alert("Fehler beim Löschen des Accounts.");
     }
 }
