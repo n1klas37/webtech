@@ -1,3 +1,7 @@
+import string
+import os
+from dotenv import load_dotenv
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 import uuid
+import random
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -12,12 +17,27 @@ from database import engine, get_db, Base
 import models
 import schemas
 
+load_dotenv()
+
 # DB Init
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Life-OS API", version="1.0.0")
+app = FastAPI(title="Life-OS API", version="1.0.0") # TODO: change name
 
 # Config
+conf = ConnectionConfig(
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM = os.getenv("MAIL_USERNAME"),
+    MAIL_PORT = 587,
+    MAIL_SERVER = "smtp.gmail.com",
+    MAIL_STARTTLS = True,
+    MAIL_SSL_TLS = False,
+    USE_CREDENTIALS = True,
+    VALIDATE_CERTS = False
+)
+
+EMAIL_VERIFICATION_ENABLED = os.getenv("EMAIL_VERIFICATION_ENABLED", "True") == "True"
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 security = HTTPBearer()
 
@@ -88,13 +108,20 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             detail="Invalid or expired Token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    if not session.user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account is inactive."
+            )
+
     return session.user
 
 
 # --- Authentication routes (public) ---
 
 @app.post("/register", response_model=schemas.LoginSuccess)
-def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
+async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
     # 1. Name Check
     if db.query(models.User).filter(models.User.name == user_data.name).first():
         raise HTTPException(400, "Benutzername bereits vergeben")
@@ -102,16 +129,61 @@ def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
     if db.query(models.User).filter(models.User.email == user_data.email).first():
         raise HTTPException(400, "Email bereits vergeben")
 
+    # Email verification
+    is_active_status = True
+    verification_code = None
+
+    if EMAIL_VERIFICATION_ENABLED:
+        is_active_status = False
+        verification_code = ''.join(random.choices(string.digits, k=6))
+
+    html_content = f"""
+            <h1>Willkommen beim Life-OS!</h1>
+            <p>Dein Verifizierungscode lautet:</p>
+            <h2 style="background: #eee; padding: 10px; display: inline-block;">{verification_code}</h2>
+            <p>Bitte gib diesen Code in der App ein.</p>
+            """
+
+    message = MessageSchema(
+        subject="Dein Life-OS Code",
+        recipients=[user_data.email],
+        body=html_content,
+        subtype=MessageType.html
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message)
+
+    """
+        # Mail simulation in terminal for login
+        print(f"\nE-MAIL SIMULATION")
+        print(f"Adress: {user_data.email}")
+        print(f"Code: {verification_code}\n")
+    """
+
+
     new_user = models.User(
         name=user_data.name,
         email=user_data.email,
-        password_hash=get_password_hash(user_data.password)
+        password_hash=get_password_hash(user_data.password),
+        is_active = is_active_status,
+        verification_code=verification_code
     )
+
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
     create_defaults_for_user(new_user.id, db)
+
+    if EMAIL_VERIFICATION_ENABLED:
+        return {
+            "success": True,
+            "message": "Bitte E-Mail prüfen und Code eingeben.",
+            "token": None,
+            "name": new_user.name
+        }
+
 
     token = str(uuid.uuid4())
     expires = datetime.utcnow() + timedelta(days=30)
@@ -119,6 +191,26 @@ def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
     db.commit()
 
     return {"success": True, "token": token, "name": new_user.name}
+
+@app.post("/verify")
+def verify_email(data: schemas.UserVerify, db: Session = Depends(get_db)):
+    """Prüft den Code und schaltet den Benutzer frei."""
+    user = db.query(models.User).filter(models.User.email == data.email).first()
+
+    if not user:
+        raise HTTPException(404, "Benutzer nicht gefunden")
+
+    if user.is_active:
+        return {"message": "Bereits aktiviert"}
+
+    if user.verification_code != data.code:
+        raise HTTPException(400, "Falscher Verifizierungscode")
+
+    user.is_active = True
+    user.verification_code = None
+    db.commit()
+
+    return {"message": "Account wurde erfolgreich aktiviert, bitte mit Anmeldung fortfahren."}
 
 
 @app.post("/login", response_model=schemas.LoginSuccess)

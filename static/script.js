@@ -73,14 +73,17 @@ function toLocalISOString(dateObj) {
 }
 
 /*============================================
-* Authentication (Login, Registration, Logout)
+* Authentication (Login, Registration, Verification, Logout)
 *============================================*/
 let isRegisterMode = false;
+let pendingEmail = "";
 
 // Show login or app screen
 function showLoginScreen() {
     document.getElementById('login-screen').classList.remove('hidden');
     document.getElementById('app-screen').classList.add('hidden');
+    document.getElementById('auth-form-container').classList.remove('hidden')
+    document.getElementById('verification-container').classList.add('hidden')
 }
 
 function showAppScreen() {
@@ -120,42 +123,67 @@ function toggleAuthMode() {
     }
 }
 
-async function handleLogin() {
+// --- Verbesserte Login Funktion ---
+async function handleLogin(event) {
+    if (event) event.preventDefault(); // Verhindert Neuladen der Seite!
+
     const name = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
     const errorEl = document.getElementById('auth-error');
 
-    if (!name || !pass) return;
+    // Reset Fehleranzeige
+    errorEl.classList.add('hidden');
+    errorEl.innerText = "";
 
-    // Backend awaits schemas.UserLogin {name, password}
-    const res = await fetch(API_BASE + '/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, password: pass })
-    });
+    if (!name || !pass) {
+        errorEl.innerText = "Bitte Name und Passwort eingeben.";
+        errorEl.classList.remove('hidden');
+        return;
+    }
 
-    const data = await res.json();
+    try {
+        const res = await fetch(API_BASE + '/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, password: pass })
+        });
 
-    if (res.ok && data.success) {
-        authToken = data.token;
-        currentUser = data.name;
-        sessionStorage.setItem('lifeos_token', authToken);
-        sessionStorage.setItem('lifeos_user', currentUser);
-        showAppScreen();
-        loadData();
-    } else {
-        errorEl.innerText = data.detail || "Login fehlgeschlagen.";
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            console.log("Login erfolgreich:", data);
+            authToken = data.token;
+            currentUser = data.name;
+            sessionStorage.setItem('lifeos_token', authToken);
+            sessionStorage.setItem('lifeos_user', currentUser);
+            showAppScreen();
+            loadData();
+        } else {
+            console.warn("Login Fehler:", data);
+            // Fehlermeldung anzeigen
+            errorEl.innerText = data.detail || "Benutzername oder Passwort falsch.";
+            errorEl.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error("Netzwerkfehler beim Login:", err);
+        errorEl.innerText = "Server nicht erreichbar.";
         errorEl.classList.remove('hidden');
     }
 }
 
-async function handleRegister() {
+// --- Verbesserte Register Funktion ---
+async function handleRegister(event) {
+    if (event) event.preventDefault(); // Verhindert Neuladen!
+
     const name = document.getElementById('username').value;
     const mail = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
     const passConfirm = document.getElementById('password-confirm').value;
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
+
+    errorEl.classList.add('hidden');
+    successEl.classList.add('hidden');
 
     if (!name || !mail || !pass || !passConfirm) {
         errorEl.innerText = "Bitte alle Felder ausfüllen.";
@@ -164,42 +192,104 @@ async function handleRegister() {
     }
 
     if (pass !== passConfirm) {
-        errorEl.innerText = "Die Passwörter stimmen nicht überein!";
+        errorEl.innerText = "Passwörter stimmen nicht überein.";
         errorEl.classList.remove('hidden');
         return;
     }
 
-    // Backend awaits schemas.UserRegister {name, email, password}
-    const res = await fetch(API_BASE + '/register', {
+    try {
+        const res = await fetch(API_BASE + '/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, email: mail, password: pass })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            // FALL 1: Verifizierung nötig
+            if (!data.token && data.message) {
+                pendingEmail = mail;
+                document.getElementById('auth-form-container').classList.add('hidden');
+                document.getElementById('verification-container').classList.remove('hidden');
+                document.getElementById('auth-title').innerText = "E-Mail bestätigen";
+                successEl.innerText = data.message;
+                successEl.classList.remove('hidden');
+            }
+            // FALL 2: Direkt eingeloggt
+            else if (data.token) {
+                authToken = data.token;
+                currentUser = data.name;
+                sessionStorage.setItem('lifeos_token', authToken);
+                sessionStorage.setItem('lifeos_user', currentUser);
+                showAppScreen();
+                loadData();
+            }
+        } else {
+            console.warn("Register Fehler:", data);
+            let msg = data.detail || "Fehler beim Registrieren.";
+            if (Array.isArray(data.detail)) msg = data.detail[0].msg; // Pydantic Fehler
+
+            errorEl.innerText = "Fehler: " + msg;
+            errorEl.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error("Netzwerkfehler beim Registrieren:", err);
+        errorEl.innerText = "Server nicht erreichbar.";
+        errorEl.classList.remove('hidden');
+    }
+}
+
+async function handleVerify() {
+    const code = document.getElementById('verify-code').value;
+    const errorEl = document.getElementById('auth-error');
+    const successEl = document.getElementById('auth-success');
+
+    if (!code) {
+        errorEl.innerText = "Bitte Code eingeben.";
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    // Anfrage an den neuen /verify Endpunkt
+    const res = await fetch(API_BASE + '/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name, email: mail, password: pass })
+        body: JSON.stringify({ email: pendingEmail, code: code })
     });
 
     const data = await res.json();
 
-    if (res.ok && data.success) {
-        successEl.innerText = "Registrierung erfolgreich! Bitte einloggen.";
+    if (res.ok) {
+        // Erfolg! Zurück zum Login
+        successEl.innerText = "Erfolg! Bitte jetzt einloggen.";
         successEl.classList.remove('hidden');
-        setTimeout(() => toggleAuthMode(), 1500);
+        errorEl.classList.add('hidden');
+
+        // Reset View to Login
+        cancelVerification();
+
+        // Da wir im Register-Mode sind, schalten wir auf Login um
+        if (isRegisterMode) toggleAuthMode();
+
     } else {
-        let msg = "Fehler beim Registrieren.";
-
-        // Case 1: validationerror i.e. Array of errors from Pydantic
-        if (Array.isArray(data.detail)) {
-            // Take first error message
-            msg = data.detail[0].msg; 
-        } 
-        // Case 2: single error message from main.py
-        else if (data.detail) {
-            msg = data.detail;
-        }
-
-        errorEl.innerText = "Fehler: " + msg;
-        
+        errorEl.innerText = data.detail || "Falscher Code.";
         errorEl.classList.remove('hidden');
     }
 }
+
+function cancelVerification() {
+    // UI zurücksetzen
+    document.getElementById('verification-container').classList.add('hidden');
+    document.getElementById('auth-form-container').classList.remove('hidden');
+
+    // Texte zurücksetzen
+    document.getElementById('auth-title').innerText = "Konto erstellen"; // oder Willkommen
+    document.getElementById('auth-subtitle').innerText = "";
+    document.getElementById('auth-success').classList.add('hidden');
+    document.getElementById('auth-error').classList.add('hidden');
+}
+
 
 function logout() {
     authToken = null;
