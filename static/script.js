@@ -72,9 +72,9 @@ function toLocalISOString(dateObj) {
         pad(dateObj.getMinutes());
 }
 
-/*============================================
+/*==========================================================
 * Authentication (Login, Registration, Verification, Logout)
-*============================================*/
+*==========================================================*/
 let isRegisterMode = false;
 let pendingEmail = "";
 
@@ -123,57 +123,44 @@ function toggleAuthMode() {
     }
 }
 
-// --- Verbesserte Login Funktion ---
 async function handleLogin(event) {
-    if (event) event.preventDefault(); // Verhindert Neuladen der Seite!
+
+    if (event) event.preventDefault();
 
     const name = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
     const errorEl = document.getElementById('auth-error');
 
-    // Reset Fehleranzeige
     errorEl.classList.add('hidden');
     errorEl.innerText = "";
 
-    if (!name || !pass) {
-        errorEl.innerText = "Bitte Name und Passwort eingeben.";
-        errorEl.classList.remove('hidden');
-        return;
-    }
+    if (!name || !pass) return;
 
-    try {
-        const res = await fetch(API_BASE + '/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, password: pass })
-        });
+    // Backend awaits schemas.UserLogin {name, password}
+    const res = await fetch(API_BASE + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, password: pass })
+    });
 
-        const data = await res.json();
+    const data = await res.json();
 
-        if (res.ok && data.success) {
-            console.log("Login erfolgreich:", data);
-            authToken = data.token;
-            currentUser = data.name;
-            sessionStorage.setItem('lifeos_token', authToken);
-            sessionStorage.setItem('lifeos_user', currentUser);
-            showAppScreen();
-            loadData();
-        } else {
-            console.warn("Login Fehler:", data);
-            // Fehlermeldung anzeigen
-            errorEl.innerText = data.detail || "Benutzername oder Passwort falsch.";
-            errorEl.classList.remove('hidden');
-        }
-    } catch (err) {
-        console.error("Netzwerkfehler beim Login:", err);
-        errorEl.innerText = "Server nicht erreichbar.";
+    if (res.ok && data.success) {
+        authToken = data.token;
+        currentUser = data.name;
+        sessionStorage.setItem('lifeos_token', authToken);
+        sessionStorage.setItem('lifeos_user', currentUser);
+        showAppScreen();
+        loadData();
+    } else {
+        errorEl.innerText = data.detail || "Login fehlgeschlagen.";
         errorEl.classList.remove('hidden');
     }
 }
 
-// --- Verbesserte Register Funktion ---
 async function handleRegister(event) {
-    if (event) event.preventDefault(); // Verhindert Neuladen!
+
+    if (event) event.preventDefault();
 
     const name = document.getElementById('username').value;
     const mail = document.getElementById('email').value;
@@ -192,23 +179,23 @@ async function handleRegister(event) {
     }
 
     if (pass !== passConfirm) {
-        errorEl.innerText = "Passwörter stimmen nicht überein.";
+        errorEl.innerText = "Die Passwörter stimmen nicht überein!";
         errorEl.classList.remove('hidden');
         return;
     }
 
-    try {
-        const res = await fetch(API_BASE + '/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, email: mail, password: pass })
-        });
+    // Backend awaits schemas.UserRegister {name, email, password}
+    const res = await fetch(API_BASE + '/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, email: mail, password: pass })
+    });
 
-        const data = await res.json();
+    const data = await res.json();
 
-        if (res.ok && data.success) {
-            // FALL 1: Verifizierung nötig
-            if (!data.token && data.message) {
+    if (res.ok && data.success) {
+        // Case 1: verification required
+        if (!data.token && data.message) {
                 pendingEmail = mail;
                 document.getElementById('auth-form-container').classList.add('hidden');
                 document.getElementById('verification-container').classList.remove('hidden');
@@ -216,8 +203,9 @@ async function handleRegister(event) {
                 successEl.innerText = data.message;
                 successEl.classList.remove('hidden');
             }
-            // FALL 2: Direkt eingeloggt
-            else if (data.token) {
+        
+        // Case 2: direct registration success
+        else if (data.token) {
                 authToken = data.token;
                 currentUser = data.name;
                 sessionStorage.setItem('lifeos_token', authToken);
@@ -225,19 +213,24 @@ async function handleRegister(event) {
                 showAppScreen();
                 loadData();
             }
+        
         } else {
-            console.warn("Register Fehler:", data);
-            let msg = data.detail || "Fehler beim Registrieren.";
-            if (Array.isArray(data.detail)) msg = data.detail[0].msg; // Pydantic Fehler
+            let msg = "Fehler beim Registrieren.";
+
+            // Case 1: validationerror i.e. Array of errors from Pydantic
+            if (Array.isArray(data.detail)) {
+                // Take first error message
+                msg = data.detail[0].msg; 
+            } 
+            // Case 2: single error message from main.py
+            else if (data.detail) {
+             msg = data.detail;
+            }
 
             errorEl.innerText = "Fehler: " + msg;
+        
             errorEl.classList.remove('hidden');
         }
-    } catch (err) {
-        console.error("Netzwerkfehler beim Registrieren:", err);
-        errorEl.innerText = "Server nicht erreichbar.";
-        errorEl.classList.remove('hidden');
-    }
 }
 
 async function handleVerify() {
@@ -261,20 +254,36 @@ async function handleVerify() {
     const data = await res.json();
 
     if (res.ok) {
+        successEl.innerText = "Registrierung erfolgreich! Bitte einloggen.";
+        if (res.ok) {
         // Erfolg! Zurück zum Login
         successEl.innerText = "Erfolg! Bitte jetzt einloggen.";
         successEl.classList.remove('hidden');
-        errorEl.classList.add('hidden');
+        setTimeout(() => toggleAuthMode(), 1500);
 
+        } else {
+            let msg = "Fehler beim Registrieren.";
+
+            // Case 1: validationerror i.e. Array of errors from Pydantic
+            if (Array.isArray(data.detail)) {
+                // Take first error message
+                msg = data.detail[0].msg; 
+            } 
+
+            // Case 2: single error message from main.py
+            else if (data.detail) {
+                msg = data.detail;
+            }
+
+            errorEl.classList.add('hidden');
+            errorEl.innerText = "Fehler: " + msg;
+        
         // Reset View to Login
         cancelVerification();
 
         // Da wir im Register-Mode sind, schalten wir auf Login um
         if (isRegisterMode) toggleAuthMode();
-
-    } else {
-        errorEl.innerText = data.detail || "Falscher Code.";
-        errorEl.classList.remove('hidden');
+        }
     }
 }
 
@@ -290,7 +299,6 @@ function cancelVerification() {
     document.getElementById('auth-error').classList.add('hidden');
 }
 
-
 function logout() {
     authToken = null;
     currentUser = null;
@@ -304,7 +312,7 @@ function logout() {
     document.getElementById('email').value = '';
     document.getElementById('password-confirm').value = '';
     showLoginScreen();
-}
+    }
 
 /*==============================
 * Data Loading and Navigation
