@@ -205,6 +205,14 @@ function logout() {
     authToken = null;
     currentUser = null;
     sessionStorage.clear();
+
+    // Clear login fields
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    
+    // Clear registration fields
+    document.getElementById('email').value = '';
+    document.getElementById('password-confirm').value = '';
     showLoginScreen();
 }
 

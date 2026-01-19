@@ -49,11 +49,8 @@
     <div id="app-screen" class="hidden">
         <!-- Sidebar -->
         <aside>
-            <h2 onclick="switchTab('homepage')" style="cursor: pointer;">Life-OS</h2>
+            <h2 onclick="switchTab('homepage')">Life-OS</h2>
 
-            <nav>
-                <a href="#" onclick="switchTab('homepage')" id="nav-homepage" class="nav-item">🏠 Homepage</a>
-            </nav>
             <nav id="nav-container">
             </nav>
 
@@ -62,7 +59,7 @@
             <hr style="border: 0; border-top: 1px solid var(--border-color); width: 100%; margin: 10px 0;">
 
             <nav>
-                 <a href="#" onclick="switchTab('reporting')" id="nav-reporting" class="nav-item">📊 Reporting</a>
+                 <a href="#" onclick="switchTab('reporting')" id="nav-reporting" class="nav-item">📊 Auswertungen</a>
             </nav>
 
             <div>
@@ -99,7 +96,7 @@
 
                     <div class="card">
                         <h3>Reporting</h3>
-                        <p>Schau dir unter "Reporting" an, wie sich deine Daten entwickeln und behalte den Überblick.</p>
+                        <p>Schau dir unter "Auswertungen" an, wie sich deine Daten entwickeln und behalte den Überblick.</p>
                         <p>Du findest dort vorgefertigte Auswertungen. Die Möglichkeit Auswertungen für eigene Kategorien zu erstellen, ist noch in Entwicklung.</p>
                         <button onclick="switchTab('reporting')" class="btn-small btn-blue mt-15" style="width:auto;">Zum Reporting</button>
                     </div>
@@ -180,7 +177,7 @@
 
                     <!-- Reporting View -->
                     <div id="view-reporting" class="view-section hidden">
-                        <header><h1>📊 Reporting</h1></header>
+                        <header><h1>📊 Auswertungen</h1></header>
                         <br>
 
                         <div class="card" style="margin-top: 20px;">

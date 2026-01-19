@@ -59,9 +59,16 @@ aside h2 {
     color: var(--text-main);
     margin-top: 0;
     margin-bottom: 20px;
-    padding-bottom: 10px;
+    padding: 10px;
     border-bottom: 2px solid var(--border-color);
     text-align: center;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+aside h2:hover {
+    background-color: #e9ecef;
+    color: var(--col-primary);
 }
 
 /* Der Container unten in der Sidebar (User & Logout) */
