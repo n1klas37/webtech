@@ -36,10 +36,16 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserVerify(BaseModel):
+    email: EmailStr
+    code: str
+
+
 class LoginSuccess(BaseModel):
     success: bool
-    token: str
-    name: str
+    token: Optional[str] = None
+    name: Optional[str] = None
+    message: Optional[str] = None
 
 
 class UserOut(BaseModel):
@@ -47,6 +53,7 @@ class UserOut(BaseModel):
     name: str
     email: str
     created_at: datetime
+    is_active: bool
 
     model_config = {"from_attributes": True}
 

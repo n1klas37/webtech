@@ -12,6 +12,10 @@ __pycache__/
 .venv/
 
 
+# Environment file for private data
+.env
+
+
 # --- Datenbank & Lokale Daten ---
 *.db
 *.sqlite3

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, JSON, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, JSON, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -13,6 +13,8 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=False)
+    verification_code = Column(String, nullable=True)
 
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     categories = relationship("Category", back_populates="user", cascade="all, delete-orphan")
@@ -49,7 +51,7 @@ class CategoryField(Base):
     category_id = Column(Integer, ForeignKey("category.id"))
 
     label = Column(String, nullable=False)
-    data_type = Column(String, nullable=False)  # 'number', 'text', 'bool'
+    data_type = Column(String, nullable=False)  # 'number' or 'text'
     unit = Column(String)
 
     category = relationship("Category", back_populates="fields")
