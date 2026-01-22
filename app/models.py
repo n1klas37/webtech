@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, JSON, DateTime, Boolean
 from sqlalchemy.orm import relationship
-from database import Base
-from datetime import datetime
+from app.database import Base
+from datetime import datetime, UTC
 
 
 # --- User & Session ---
@@ -12,7 +12,7 @@ class User(Base):
     name = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))
     is_active = Column(Boolean, default=False)
     verification_code = Column(String, nullable=True)
 
@@ -65,7 +65,7 @@ class Entry(Base):
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     category_id = Column(Integer, ForeignKey("category.id"))
 
-    occurred_at = Column(DateTime, default=datetime.utcnow)
+    occurred_at = Column(DateTime, default=datetime.now(UTC))
     note = Column(Text)
     data = Column(JSON)
 

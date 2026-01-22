@@ -1,5 +1,5 @@
 import pytest
-from models import User, Entry
+from app.models import User, Entry
 
 def test_user_model_email_storage():
     """PRÜFUNG: Speichert das User-Modell die E-Mail korrekt?"""

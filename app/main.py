@@ -2,18 +2,17 @@ import string
 import os
 from dotenv import load_dotenv
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
 import uuid
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import List, Optional
 
-from database import engine, get_db, Base
+from app.database import engine, get_db, Base
+from auth import get_current_user, get_password_hash, verify_password
 import models
 import schemas
 
@@ -22,7 +21,7 @@ load_dotenv()
 # DB Init
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Life-OS API", version="1.0.0") # TODO: change name
+app = FastAPI(title="Lifetracker API", version="1.0.0") # TODO: change name
 
 # Config
 conf = ConnectionConfig(
@@ -38,8 +37,8 @@ conf = ConnectionConfig(
 )
 
 EMAIL_VERIFICATION_ENABLED = os.getenv("EMAIL_VERIFICATION_ENABLED", "True") == "True"
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-security = HTTPBearer()
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,14 +50,6 @@ app.add_middleware(
 
 
 # --- Helper ---
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
 
 def create_defaults_for_user(user_id: int, db: Session):
     # 1. Fitness
@@ -95,27 +86,6 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(models.CategoryField(category_id=cat_diary.id, label="Erholung (1-10)", data_type="number", unit=""))
     db.commit()
 
-
-# --- Security dependency ---
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
-    token = credentials.credentials
-    session = db.query(models.Session).filter(models.Session.token == token).first()
-
-    if not session or session.expires_at < datetime.utcnow():
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired Token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not session.user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User account is inactive."
-            )
-
-    return session.user
 
 
 # --- Authentication routes (public) ---
@@ -154,13 +124,6 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
     fm = FastMail(conf)
     await fm.send_message(message)
 
-    """
-        # Mail simulation in terminal for login
-        print(f"\nE-MAIL SIMULATION")
-        print(f"Adress: {user_data.email}")
-        print(f"Code: {verification_code}\n")
-    """
-
 
     new_user = models.User(
         name=user_data.name,
@@ -184,13 +147,13 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
             "name": new_user.name
         }
 
-
     token = str(uuid.uuid4())
-    expires = datetime.utcnow() + timedelta(days=30)
+    expires = datetime.now(UTC) + timedelta(days=30)
     db.add(models.Session(token=token, user_id=new_user.id, expires_at=expires))
     db.commit()
 
     return {"success": True, "token": token, "name": new_user.name}
+
 
 @app.post("/verify")
 def verify_email(data: schemas.UserVerify, db: Session = Depends(get_db)):
@@ -224,7 +187,7 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(401, "Account ist noch nicht aktiviert. Bitte E-Mail Verifizierung durchführen.")
 
     token = str(uuid.uuid4())
-    expires = datetime.utcnow() + timedelta(days=30)
+    expires = datetime.now(UTC) + timedelta(days=30)
     db.add(models.Session(token=token, user_id=user.id, expires_at=expires))
     db.commit()
     return {"success": True, "token": token, "name": user.name}
@@ -395,23 +358,8 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db), user: models.User
     return {"status": "deleted", "id": entry_id}
 
 
-# --- Reports (Placeholder for future extensions) ---
 
-@app.get("/reports/")
-def get_reports(): return []
-
-
-@app.post("/reports/")
-def create_report(): return {}
-
-
-@app.delete("/reports/{report_id}")
-def delete_report(report_id: int): return {}
-
-
-
-
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", StaticFiles(directory="../static", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn

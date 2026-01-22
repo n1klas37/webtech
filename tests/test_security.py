@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from schemas import UserUpdate as UserCreate 
+from app.schemas import UserUpdate as UserCreate
 
 # --- SICHERHEITS- UND VALIDIERUNGSTESTS ---
 

@@ -1,8 +1,8 @@
 import json
 import os
 from datetime import datetime
-from database import SessionLocal, engine, Base
-import models
+from app.database import SessionLocal, engine, Base
+from app import models
 from passlib.context import CryptContext
 
 Base.metadata.create_all(bind=engine)
@@ -21,7 +21,6 @@ def seed():
     db.commit()
 
     print("Erstelle User: testuser / Test1234!")
-    # ACHTUNG: Passwort muss jetzt stark sein!
     user = models.User(
         name="testuser",
         email="test@test.de",

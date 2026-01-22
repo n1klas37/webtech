@@ -1,5 +1,5 @@
 import pytest
-from schemas import EntryCreate
+from app.schemas import EntryCreate
 from pydantic import ValidationError
 from datetime import datetime
 

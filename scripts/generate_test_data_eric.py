@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, timedelta
-from database import SessionLocal
-import models
+from app.database import SessionLocal
+from app import models
 
 # --- KONFIGURATION ---
 TARGET_USERNAME = "Eric"  # <--- Hier deinen Usernamen eintragen

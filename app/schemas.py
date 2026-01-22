@@ -6,7 +6,7 @@ import re
 
 # --- Helper for validation ---
 def validate_strong_password(v: str) -> str:
-    """Prüft Passwortrichtlinien (Min 8 Zeichen, Zahl, Großbuchstabe)"""
+    """Prüft Passwortrichtlinien (Mindestens 8 Zeichen, Zahl, Großbuchstabe)"""
     if v is None: return v
 
     if len(v) < 8:
@@ -67,6 +67,7 @@ class UserUpdate(BaseModel):
     @classmethod
     def check_password(cls, v):
         return validate_strong_password(v)
+
 
 
 # --- Categories ---
