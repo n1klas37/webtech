@@ -62,7 +62,7 @@ def verify_password(plain_password, hashed_password):
 
 def create_defaults_for_user(user_id: int, db: Session):
     # 1. Fitness
-    cat_fit = models.Category(user_id=user_id, name="🚴 Fitness", description="Training")
+    cat_fit = models.Category(user_id=user_id, name="🚴 Fitness", description="Hier kannst du dein Training tracken.")
     db.add(cat_fit)
     db.commit()
     db.add(models.CategoryField(category_id=cat_fit.id, label="Übung", data_type="text"))
@@ -72,7 +72,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
 
     # 2. Ernährung
-    cat_fit = models.Category(user_id=user_id, name="🍎 Ernährung", description="Ernährung")
+    cat_fit = models.Category(user_id=user_id, name="🍎 Ernährung", description="Hier kannst du deine Ernährung tracken.")
     db.add(cat_fit)
     db.commit()
     db.add(models.CategoryField(category_id=cat_fit.id, label="Lebensmittel", data_type="text"))
@@ -80,7 +80,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
 
     # 3. Laune
-    cat_diary = models.Category(user_id=user_id, name="📖 Tagebuch", description="Gedanken")
+    cat_diary = models.Category(user_id=user_id, name="📖 Tagebuch", description="Hier kannst du deine Stimmung tracken.")
     db.add(cat_diary)
     db.commit()
     db.add(models.CategoryField(category_id=cat_diary.id, label="Laune (1-10)", data_type="number", unit=""))
@@ -216,8 +216,12 @@ def verify_email(data: schemas.UserVerify, db: Session = Depends(get_db)):
 @app.post("/login", response_model=schemas.LoginSuccess)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.name == user_data.name).first()
+
     if not user or not verify_password(user_data.password, user.password_hash):
         raise HTTPException(401, "Benutzername oder Passwort falsch")
+    
+    if not user.is_active:
+        raise HTTPException(401, "Account ist noch nicht aktiviert. Bitte E-Mail Verifizierung durchführen.")
 
     token = str(uuid.uuid4())
     expires = datetime.utcnow() + timedelta(days=30)

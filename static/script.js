@@ -5,8 +5,8 @@
 
 // Set API_BASE to "" for same origin as the frontend
 const API_BASE = ""; 
-let authToken = sessionStorage.getItem('lifeos_token');
-let currentUser = sessionStorage.getItem('lifeos_user');
+let authToken = sessionStorage.getItem('lifetracker_token');
+let currentUser = sessionStorage.getItem('lifetracker_user');
 
 // Data-Cache
 let categories = [];
@@ -148,8 +148,8 @@ async function handleLogin(event) {
     if (res.ok && data.success) {
         authToken = data.token;
         currentUser = data.name;
-        sessionStorage.setItem('lifeos_token', authToken);
-        sessionStorage.setItem('lifeos_user', currentUser);
+        sessionStorage.setItem('lifetracker_token', authToken);
+        sessionStorage.setItem('lifetracker_user', currentUser);
         showAppScreen();
         loadData();
     } else {
@@ -208,8 +208,8 @@ async function handleRegister(event) {
         else if (data.token) {
                 authToken = data.token;
                 currentUser = data.name;
-                sessionStorage.setItem('lifeos_token', authToken);
-                sessionStorage.setItem('lifeos_user', currentUser);
+                sessionStorage.setItem('lifetracker_token', authToken);
+                sessionStorage.setItem('lifetracker_user', currentUser);
                 showAppScreen();
                 loadData();
             }
@@ -1302,7 +1302,7 @@ async function saveUserAccount() {
         // Update currentUser if name changed
         currentUser = updatedUser.name;
         // Set session storage
-        sessionStorage.setItem('lifeos_user', currentUser);
+        sessionStorage.setItem('lifetracker_user', currentUser);
         //Update displayed username
         document.getElementById('display-username').innerText = "Angemeldet als: " + currentUser;
         
