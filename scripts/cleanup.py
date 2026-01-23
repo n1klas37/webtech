@@ -11,7 +11,7 @@ def cleanup_unverified_users():
     db = SessionLocal()
 
     try:
-        limit_time = datetime.now(UTC) - timedelta(minutes=15)
+        limit_time = datetime.now(UTC) - timedelta(minutes=1)
 
         zombies = db.query(User).filter(
             User.is_active == False,

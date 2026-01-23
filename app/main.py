@@ -11,7 +11,7 @@ import random
 from datetime import datetime, timedelta, UTC, timezone, tzinfo
 from typing import List, Optional
 
-from app.database import engine, get_db, Base
+from database import engine, get_db, Base
 from auth import get_current_user, get_password_hash, verify_password
 import models
 import schemas
