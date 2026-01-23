@@ -411,9 +411,11 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db), user: models.User
     db.commit()
     return {"status": "deleted", "id": entry_id}
 
+# --- Static files (frontend) ---
+script_dir = os.path.dirname(os.path.abspath(__file__))
+static_files_path = os.path.join(script_dir, "../static")
 
-
-app.mount("/", StaticFiles(directory="../static", html=True), name="static")
+app.mount("/", StaticFiles(directory=static_files_path, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
