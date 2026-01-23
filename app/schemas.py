@@ -93,6 +93,10 @@ class CategoryUpdate(BaseModel):
 
 class CategoryOut(CategoryCreate):
     id: int
+    is_system_default: bool
+
+    class Config:
+        from_attributes = True
 
 
 # --- Entries ---

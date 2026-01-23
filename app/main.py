@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import uuid
 import random
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, UTC, timezone, tzinfo
 from typing import List, Optional
 
 from app.database import engine, get_db, Base
@@ -21,7 +21,7 @@ load_dotenv()
 # DB Init
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Lifetracker API", version="1.0.0") # TODO: change name
+app = FastAPI(title="Lifetracker API", version="1.0.0")
 
 # Config
 conf = ConnectionConfig(
@@ -53,9 +53,14 @@ app.add_middleware(
 
 def create_defaults_for_user(user_id: int, db: Session):
     # 1. Fitness
-    cat_fit = models.Category(user_id=user_id, name="🚴 Fitness", description="Hier kannst du dein Training tracken.")
+    cat_fit = models.Category(user_id=user_id,
+                              name="🚴 Fitness",
+                              description="Hier kannst du dein Training tracken.",
+                              is_system_default=True)
+
     db.add(cat_fit)
     db.commit()
+
     db.add(models.CategoryField(category_id=cat_fit.id, label="Übung", data_type="text"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Dauer", data_type="number", unit="Minuten"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Strecke", data_type="number", unit="km"))
@@ -63,27 +68,40 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
 
     # 2. Ernährung
-    cat_fit = models.Category(user_id=user_id, name="🍎 Ernährung", description="Hier kannst du deine Ernährung tracken.")
+    cat_fit = models.Category(user_id=user_id,
+                              name="🍎 Ernährung",
+                              description="Hier kannst du deine Ernährung tracken.",
+                              is_system_default=True)
     db.add(cat_fit)
     db.commit()
+
     db.add(models.CategoryField(category_id=cat_fit.id, label="Lebensmittel", data_type="text"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Gewicht", data_type="number", unit="g"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
+    db.commit()
 
     # 3. Laune
-    cat_diary = models.Category(user_id=user_id, name="📖 Tagebuch", description="Hier kannst du deine Stimmung tracken.")
+    cat_diary = models.Category(user_id=user_id,
+                                name="📖 Tagebuch",
+                                description="Hier kannst du deine Stimmung tracken.",
+                                is_system_default=True)
     db.add(cat_diary)
     db.commit()
-    db.add(models.CategoryField(category_id=cat_diary.id, label="Laune (1-10)", data_type="number", unit=""))
+
+    db.add(models.CategoryField(category_id=cat_diary.id, label="Laune (1-10)", data_type="number", unit="/10"))
     db.add(models.CategoryField(category_id=cat_diary.id, label="Highlight", data_type="text"))
     db.commit()
 
     # 4. Schlaf
-    cat_diary = models.Category(user_id=user_id, name="💤 Schlaf", description="Hier kannst du deinen Schlaf tracken.")
+    cat_diary = models.Category(user_id=user_id,
+                                name="💤 Schlaf",
+                                description="Hier kannst du deinen Schlaf tracken.",
+                                is_system_default=True)
     db.add(cat_diary)
     db.commit()
+
     db.add(models.CategoryField(category_id=cat_diary.id, label="Dauer", data_type="number", unit="Stunden"))
-    db.add(models.CategoryField(category_id=cat_diary.id, label="Erholung (1-10)", data_type="number", unit=""))
+    db.add(models.CategoryField(category_id=cat_diary.id, label="Erholung (1-10)", data_type="number", unit="/10"))
     db.commit()
 
 
@@ -92,12 +110,27 @@ def create_defaults_for_user(user_id: int, db: Session):
 
 @app.post("/register", response_model=schemas.LoginSuccess)
 async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
-    # 1. Name Check
-    if db.query(models.User).filter(models.User.name == user_data.name).first():
-        raise HTTPException(400, "Benutzername bereits vergeben")
-    # 2. Email Check
-    if db.query(models.User).filter(models.User.email == user_data.email).first():
-        raise HTTPException(400, "Email bereits vergeben")
+    existing_user = db.query(models.User).filter(
+        (models.User.name == user_data.name) |
+        (models.User.email ==user_data.email)
+    ).first()
+
+    if existing_user:
+        if existing_user.is_active:
+            raise HTTPException(400, "Benutername oder Email Adresse bereits vergeben.")
+        else:
+            expiry_limit = datetime.now(UTC) - timedelta(minutes=15)
+
+            created_at_utc = existing_user.created_at
+            if created_at_utc.tzinfo is None:
+                created_at_utc = created_at_utc.replace(tzinfo=UTC)
+
+            if created_at_utc < expiry_limit:
+                db.delete(existing_user)
+                db.commit()
+            else:
+                raise HTTPException(400, detail="Registrierung wurde gestartet. Bitte E-Mails überprüfen oder 15 Minuten warten.")
+
 
     # Email verification
     is_active_status = True
@@ -108,14 +141,14 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
         verification_code = ''.join(random.choices(string.digits, k=6))
 
     html_content = f"""
-            <h1>Willkommen beim Life-OS!</h1>
+            <h1>Willkommen beim Lifetracker!</h1>
             <p>Dein Verifizierungscode lautet:</p>
             <h2 style="background: #eee; padding: 10px; display: inline-block;">{verification_code}</h2>
             <p>Bitte gib diesen Code in der App ein.</p>
             """
 
     message = MessageSchema(
-        subject="Dein Life-OS Code",
+        subject="Dein Lifetracker Code",
         recipients=[user_data.email],
         body=html_content,
         subtype=MessageType.html
@@ -123,7 +156,6 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
 
     fm = FastMail(conf)
     await fm.send_message(message)
-
 
     new_user = models.User(
         name=user_data.name,
@@ -201,37 +233,44 @@ def get_user_profile(user: models.User = Depends(get_current_user)):
 
 
 @app.put("/user", response_model=schemas.UserOut)
-def update_user_profile(
-        user_data: schemas.UserUpdate,
-        db: Session = Depends(get_db),
-        current_user: models.User = Depends(get_current_user)
-):
+def update_user_profile(user_data: schemas.UserUpdate, db: Session = Depends(get_db),
+                        current_user: models.User = Depends(get_current_user)):
+    # 1. Frisch aus dieser Session laden
+    user_in_db = db.query(models.User).filter(models.User.id == current_user.id).first()
+
+    if not user_in_db:
+        raise HTTPException(404, "Benutzer nicht gefunden!")
+
+    # 2. Prüfungen (Name doppelt?)
     if user_data.name:
         existing = db.query(models.User).filter(models.User.name == user_data.name).first()
-        if existing and existing.id != current_user.id:
-            raise HTTPException(400, "Benutzername bereits vergeben")
-        current_user.name = user_data.name
+        if existing and existing.id != user_in_db.id:
+            raise HTTPException(400, "Name bereits vergeben!")
+        user_in_db.name = user_data.name
 
     if user_data.email:
         existing = db.query(models.User).filter(models.User.email == user_data.email).first()
-        if existing and existing.id != current_user.id:
-            raise HTTPException(400, "Email bereits vergeben")
-        current_user.email = user_data.email
+        if existing and existing.id != user_in_db.id:
+            raise HTTPException(400, "Email bereits vergeben!")
+        user_in_db.email = user_data.email
 
     if user_data.password:
-        current_user.password_hash = get_password_hash(user_data.password)
+        user_in_db.password_hash = get_password_hash(user_data.password)
 
     db.commit()
-    db.refresh(current_user)
-    return current_user
+    db.refresh(user_in_db)
+    return user_in_db
 
 
 @app.delete("/user")
 def delete_user_account(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    user_id = current_user.id
-    db.delete(current_user)
-    db.commit()
-    return {"status": "deleted", "id": user_id}
+    user_to_delete = db.query(models.User).filter(models.User.id == current_user.id).first()
+
+    if user_to_delete:
+        db.delete(user_to_delete)
+        db.commit()
+
+    return {"status": "deleted", "id": current_user.id}
 
 
 # --- Category routes ---
@@ -260,19 +299,26 @@ def update_category(
         category_id: int,
         cat_update: schemas.CategoryUpdate,
         db: Session = Depends(get_db),
-        user: models.User = Depends(get_current_user)
-):
+        user: models.User = Depends(get_current_user)):
+
     cat = db.query(models.Category).filter(models.Category.id == category_id,
                                            models.Category.user_id == user.id).first()
+
     if not cat: raise HTTPException(404, "Category not found")
+
+    if cat.is_system_default:
+        raise HTTPException(status_code=400,
+                            detail="Standard-Kategorien können nicht bearbeitet werden, da sie für die Auswertung benötigt werden.")
 
     if cat_update.name is not None:
         cat.name = cat_update.name
+
     if cat_update.description is not None:
         cat.description = cat_update.description
 
     db.commit()
     db.refresh(cat)
+
     return cat
 
 
@@ -280,9 +326,16 @@ def update_category(
 def delete_category(category_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     cat = db.query(models.Category).filter(models.Category.id == category_id,
                                            models.Category.user_id == user.id).first()
+
     if not cat: raise HTTPException(404, "Not found")
+
+    if cat.is_system_default:
+        raise HTTPException(status_code=400,
+                            detail="Standard-Kategorien können nicht gelöscht werden, da sie für die Auswertung benötigt werden.")
+
     db.delete(cat)  # Cascading delete löscht Felder & Einträge
     db.commit()
+
     return {"status": "deleted", "id": category_id}
 
 
@@ -297,6 +350,7 @@ def get_entries(
         user: models.User = Depends(get_current_user)
 ):
     query = db.query(models.Entry).filter(models.Entry.user_id == user.id)
+
     if category_id: query = query.filter(models.Entry.category_id == category_id)
     if start: query = query.filter(models.Entry.occurred_at >= start)
     if end: query = query.filter(models.Entry.occurred_at <= end)

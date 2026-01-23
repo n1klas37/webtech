@@ -39,6 +39,7 @@ class Category(Base):
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     name = Column(String(50), nullable=False)
     description = Column(Text)
+    is_system_default = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="categories")
     fields = relationship("CategoryField", back_populates="category", cascade="all, delete-orphan")

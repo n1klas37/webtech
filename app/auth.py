@@ -2,7 +2,7 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
-from datetime import datetime, UTC
+from datetime import datetime, UTC, tzinfo
 
 import models
 from database import get_db
@@ -25,7 +25,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     token = credentials.credentials
     session = db.query(models.Session).filter(models.Session.token == token).first()
 
-    if not session or session.expires_at < datetime.now(UTC):
+    expiry = session.expires_at
+
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=UTC)
+
+    if not session or expiry < datetime.now(UTC):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired Token",
