@@ -4,7 +4,7 @@ from app.database import SessionLocal
 from app import models
 
 # --- KONFIGURATION ---
-TARGET_USERNAME = "marc"  # <--- Hier deinen Usernamen eintragen
+TARGET_USERNAME = "testuser"  # <--- Hier deinen Usernamen eintragen
 DAYS_TO_FILL = 300000             # Für wie viele Tage rückwirkend Daten erzeugen?
 ENTRIES_PER_DAY = 20           # Ungefähre Anzahl Einträge pro Kategorie/Tag
 

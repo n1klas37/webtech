@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import uuid
 import random
-from datetime import datetime, timedelta, UTC, timezone, tzinfo
+from datetime import datetime, timedelta, UTC
 from typing import List, Optional
 
 from database import engine, get_db, Base
