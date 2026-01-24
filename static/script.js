@@ -244,7 +244,7 @@ async function handleVerify() {
         return;
     }
 
-    // Anfrage an den neuen /verify Endpunkt
+    // Request to verify endpoint
     const res = await fetch(API_BASE + '/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -255,17 +255,19 @@ async function handleVerify() {
 
     if (res.ok) {
         successEl.innerText = "Registrierung erfolgreich! Bitte einloggen.";
-        if (res.ok) {
-        // Erfolg! Zurück zum Login
-        successEl.innerText = "Erfolg! Bitte jetzt einloggen.";
         successEl.classList.remove('hidden');
-        setTimeout(() => toggleAuthMode(), 1500);
 
-        } else {
-            let msg = "Fehler beim Registrieren.";
+        // Reset View to Login after 1.5 seconds so user can read the success message
+        setTimeout(() => {
+            cancelVerification();
+            if (isRegisterMode) toggleAuthMode();
+        }, 1500);
 
-            // Case 1: validationerror i.e. Array of errors from Pydantic
-            if (Array.isArray(data.detail)) {
+    } else {
+        let msg = "Fehler beim Registrieren.";
+
+        // Case 1: validationerror i.e. Array of errors from Pydantic
+        if (Array.isArray(data.detail)) {
                 // Take first error message
                 msg = data.detail[0].msg; 
             } 
@@ -275,7 +277,7 @@ async function handleVerify() {
                 msg = data.detail;
             }
 
-            errorEl.classList.add('hidden');
+            errorEl.classList.remove('hidden');
             errorEl.innerText = "Fehler: " + msg;
         
         // Reset View to Login
@@ -283,9 +285,9 @@ async function handleVerify() {
 
         // Da wir im Register-Mode sind, schalten wir auf Login um
         if (isRegisterMode) toggleAuthMode();
-        }
     }
 }
+
 
 function cancelVerification() {
     // UI zurücksetzen
