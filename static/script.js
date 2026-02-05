@@ -514,7 +514,12 @@ async function editCurrentCategory() {
         alert("Kategorie aktualisiert!");
         await loadData(); // Reload data to see changes
     } else {
-        alert("Fehler beim Aktualisieren.");
+        try {
+            const err = await res.json();
+            alert("Fehler: " + (err.detail || "Fehler beim Aktualisieren."));
+        } catch (e) {
+            alert("Ein unbekannter Fehler ist aufgetreten.");
+        }
     }
 }
 
@@ -888,9 +893,9 @@ function renderEntryList() {
                 // If fieldDef has unit, append it, if not, leave empty
                 const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
 
-                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem;">
+                detailsHtml += `<div style="margin-bottom:5px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem; width: fit-content;">
                     <b>${key}:</b> ${val}${unit}
-                </span> `;
+                </div>`;
             }
         }
 
