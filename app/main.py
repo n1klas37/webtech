@@ -25,9 +25,9 @@ app = FastAPI(title="Lifetracker API", version="1.0.0")
 
 # Config
 conf = ConnectionConfig(
-    MAIL_USERNAME = os.getenv("MAIL_USERNAME"),
-    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD"),
-    MAIL_FROM = os.getenv("MAIL_USERNAME"),
+    MAIL_USERNAME = "webtechlifetracker@gmail.com",
+    MAIL_PASSWORD = "zapfimzljiwryajb",
+    MAIL_FROM = "webtechlifetracker@gmail.com",
     MAIL_PORT = 587,
     MAIL_SERVER = "smtp.gmail.com",
     MAIL_STARTTLS = True,
