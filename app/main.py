@@ -11,10 +11,10 @@ import random
 from datetime import datetime, timedelta, UTC
 from typing import List, Optional
 
-from database import engine, get_db, Base
-from auth import get_current_user, get_password_hash, verify_password
-import models
-import schemas
+from app.database import engine, get_db, Base
+from app.auth import get_current_user, get_password_hash, verify_password
+from app import models
+from app import schemas
 
 load_dotenv()
 
