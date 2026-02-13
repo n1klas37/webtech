@@ -93,13 +93,18 @@ function showAppScreen() {
 }
 
 function toggleAuthMode() {
+    // Toggle between login and register mode
     isRegisterMode = !isRegisterMode;
+
+    // Reset error and success messages
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-success').classList.add('hidden');
 
+    // Show/hide email and password confirm fields based on mode
     const emailContainer = document.getElementById('email-container');
     const passConfirmContainer = document.getElementById('password-confirm-container');
 
+    // Update UI texts and visibility based on mode
     if (isRegisterMode) {
         document.getElementById('auth-title').innerText = "Konto erstellen";
 
@@ -125,15 +130,19 @@ function toggleAuthMode() {
 
 async function handleLogin(event) {
 
+    // Prevent form submission
     if (event) event.preventDefault();
 
+    // Get form values
     const name = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
     const errorEl = document.getElementById('auth-error');
 
+    // Reset error message
     errorEl.classList.add('hidden');
     errorEl.innerText = "";
 
+    // Check required fields
     if (!name || !pass) return;
 
     // Backend awaits schemas.UserLogin {name, password}
@@ -143,8 +152,10 @@ async function handleLogin(event) {
         body: JSON.stringify({ name: name, password: pass })
     });
 
+    // Parse response data
     const data = await res.json();
 
+    // If login successful, save token and username, then show app screen and load data
     if (res.ok && data.success) {
         authToken = data.token;
         currentUser = data.name;
@@ -152,6 +163,7 @@ async function handleLogin(event) {
         sessionStorage.setItem('lifetracker_user', currentUser);
         showAppScreen();
         loadData();
+    // If login failed, show error message
     } else {
         errorEl.innerText = data.detail || "Login fehlgeschlagen.";
         errorEl.classList.remove('hidden');
@@ -160,8 +172,10 @@ async function handleLogin(event) {
 
 async function handleRegister(event) {
 
+    // Prevent form submission
     if (event) event.preventDefault();
 
+    // Get form values
     const name = document.getElementById('username').value;
     const mail = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
@@ -169,15 +183,18 @@ async function handleRegister(event) {
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
 
+    // Reset messages
     errorEl.classList.add('hidden');
     successEl.classList.add('hidden');
 
+    // Check required fields
     if (!name || !mail || !pass || !passConfirm) {
         errorEl.innerText = "Bitte alle Felder ausfüllen.";
         errorEl.classList.remove('hidden');
         return;
     }
 
+    // Check password confirmation
     if (pass !== passConfirm) {
         errorEl.innerText = "Die Passwörter stimmen nicht überein!";
         errorEl.classList.remove('hidden');
@@ -220,7 +237,7 @@ async function handleRegister(event) {
             // Case 1: validationerror i.e. Array of errors from Pydantic
             if (Array.isArray(data.detail)) {
                 // Take first error message
-                msg = data.detail[0].msg; 
+                msg = data.detail[0].msg.replace('Value error, ', ''); 
             } 
             // Case 2: single error message from main.py
             else if (data.detail) {
@@ -234,10 +251,12 @@ async function handleRegister(event) {
 }
 
 async function handleVerify() {
+    // Get code from input
     const code = document.getElementById('verify-code').value;
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
 
+    // If code is empty, show error
     if (!code) {
         errorEl.innerText = "Bitte Code eingeben.";
         errorEl.classList.remove('hidden');
@@ -287,7 +306,6 @@ async function handleVerify() {
         if (isRegisterMode) toggleAuthMode();
     }
 }
-
 
 function cancelVerification() {
     // UI zurücksetzen

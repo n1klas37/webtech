@@ -115,19 +115,25 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
         (models.User.email ==user_data.email)
     ).first()
 
+    # Check if user exists
     if existing_user:
+        # If yes, and user is acive, reject registration
         if existing_user.is_active:
             raise HTTPException(400, "Benutername oder Email Adresse bereits vergeben.")
+        # If yes, but user is not active, check if registration is expired (15min)
         else:
             expiry_limit = datetime.now(UTC) - timedelta(minutes=15)
 
             created_at_utc = existing_user.created_at
+            # Ensure created_at is timezone-aware in UTC
             if created_at_utc.tzinfo is None:
                 created_at_utc = created_at_utc.replace(tzinfo=UTC)
 
+            # If registration is expired, delete old user and allow new registration
             if created_at_utc < expiry_limit:
                 db.delete(existing_user)
                 db.commit()
+            # If registration is not expired, reject registration and ask user to check email or wait
             else:
                 raise HTTPException(400, detail="Registrierung wurde gestartet. Bitte E-Mails überprüfen oder 15 Minuten warten.")
 
