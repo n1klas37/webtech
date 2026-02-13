@@ -36,7 +36,7 @@ conf = ConnectionConfig(
     VALIDATE_CERTS = False
 )
 
-EMAIL_VERIFICATION_ENABLED = os.getenv("EMAIL_VERIFICATION_ENABLED", "False") == "False"
+EMAIL_VERIFICATION_ENABLED = False
 
 
 
