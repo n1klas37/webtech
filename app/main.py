@@ -36,7 +36,7 @@ conf = ConnectionConfig(
     VALIDATE_CERTS = False
 )
 
-EMAIL_VERIFICATION_ENABLED = os.getenv("EMAIL_VERIFICATION_ENABLED", "True") == "True"
+EMAIL_VERIFICATION_ENABLED = os.getenv("EMAIL_VERIFICATION_ENABLED", "False") == "False"
 
 
 
@@ -146,22 +146,22 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
         is_active_status = False
         verification_code = ''.join(random.choices(string.digits, k=6))
 
-    html_content = f"""
+        html_content = f"""
             <h1>Willkommen beim Lifetracker!</h1>
             <p>Dein Verifizierungscode lautet:</p>
             <h2 style="background: #eee; padding: 10px; display: inline-block;">{verification_code}</h2>
             <p>Bitte gib diesen Code in der App ein.</p>
             """
 
-    message = MessageSchema(
-        subject="Dein Lifetracker Code",
-        recipients=[user_data.email],
-        body=html_content,
-        subtype=MessageType.html
-    )
+        message = MessageSchema(
+            subject="Dein Lifetracker Code",
+            recipients=[user_data.email],
+            body=html_content,
+            subtype=MessageType.html
+        )
 
-    fm = FastMail(conf)
-    await fm.send_message(message)
+        fm = FastMail(conf)
+        await fm.send_message(message)
 
     new_user = models.User(
         name=user_data.name,
