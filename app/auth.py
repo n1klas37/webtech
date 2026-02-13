@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from datetime import datetime, UTC
 
-import models
-from database import get_db
+from app import models
+from app.database import get_db
 
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
