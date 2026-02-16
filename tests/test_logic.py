@@ -21,8 +21,8 @@ def test_string_trimming_logic():
 
 def test_json_structure_extraction():
     """LOGIK: Kann ein Wert aus einem verschachtelten Dictionary gelesen werden?"""
-    data = {"sensors": {"temp": {"value": 22}}}
-    assert data["sensors"]["temp"]["value"] == 22
+    data = {"name": {"temp": {"value": 22}}}
+    assert data["name"]["temp"]["value"] == 22
 
 def test_list_not_empty_logic():
     """LOGIK: Stellt sicher, dass unsere Datenlisten nicht leer sind."""
