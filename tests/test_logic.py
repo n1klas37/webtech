@@ -4,9 +4,9 @@ def test_temp_range_validation_logic():
     """LOGIK: Prüft, ob Werte in einem Bereich liegen."""
     def is_valid_area(a): return -50 < a < 100
     
-    assert is_valid_area(20) is True   # Normal
-    assert is_valid_area(150) is False # Zu heiß
-    assert is_valid_area(-100) is False # Zu kalt
+    assert is_valid_area(20) is True   # innerhalb
+    assert is_valid_area(150) is False # außerhalb
+    assert is_valid_area(-100) is False # außerhalb
 
 def test_calculate_average_logic():
     """LOGIK: Prüft eine mathematische Durchschnittsberechnung."""
