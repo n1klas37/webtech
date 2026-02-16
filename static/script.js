@@ -93,13 +93,18 @@ function showAppScreen() {
 }
 
 function toggleAuthMode() {
+    // Toggle between login and register mode
     isRegisterMode = !isRegisterMode;
+
+    // Reset error and success messages
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-success').classList.add('hidden');
 
+    // Show/hide email and password confirm fields based on mode
     const emailContainer = document.getElementById('email-container');
     const passConfirmContainer = document.getElementById('password-confirm-container');
 
+    // Update UI texts and visibility based on mode
     if (isRegisterMode) {
         document.getElementById('auth-title').innerText = "Konto erstellen";
 
@@ -125,15 +130,19 @@ function toggleAuthMode() {
 
 async function handleLogin(event) {
 
+    // Prevent form submission
     if (event) event.preventDefault();
 
+    // Get form values
     const name = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
     const errorEl = document.getElementById('auth-error');
 
+    // Reset error message
     errorEl.classList.add('hidden');
     errorEl.innerText = "";
 
+    // Check required fields
     if (!name || !pass) return;
 
     // Backend awaits schemas.UserLogin {name, password}
@@ -143,8 +152,10 @@ async function handleLogin(event) {
         body: JSON.stringify({ name: name, password: pass })
     });
 
+    // Parse response data
     const data = await res.json();
 
+    // If login successful, save token and username, then show app screen and load data
     if (res.ok && data.success) {
         authToken = data.token;
         currentUser = data.name;
@@ -152,6 +163,7 @@ async function handleLogin(event) {
         sessionStorage.setItem('lifetracker_user', currentUser);
         showAppScreen();
         loadData();
+    // If login failed, show error message
     } else {
         errorEl.innerText = data.detail || "Login fehlgeschlagen.";
         errorEl.classList.remove('hidden');
@@ -160,8 +172,10 @@ async function handleLogin(event) {
 
 async function handleRegister(event) {
 
+    // Prevent form submission
     if (event) event.preventDefault();
 
+    // Get form values
     const name = document.getElementById('username').value;
     const mail = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
@@ -169,15 +183,18 @@ async function handleRegister(event) {
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
 
+    // Reset messages
     errorEl.classList.add('hidden');
     successEl.classList.add('hidden');
 
+    // Check required fields
     if (!name || !mail || !pass || !passConfirm) {
         errorEl.innerText = "Bitte alle Felder ausfüllen.";
         errorEl.classList.remove('hidden');
         return;
     }
 
+    // Check password confirmation
     if (pass !== passConfirm) {
         errorEl.innerText = "Die Passwörter stimmen nicht überein!";
         errorEl.classList.remove('hidden');
@@ -220,7 +237,7 @@ async function handleRegister(event) {
             // Case 1: validationerror i.e. Array of errors from Pydantic
             if (Array.isArray(data.detail)) {
                 // Take first error message
-                msg = data.detail[0].msg; 
+                msg = data.detail[0].msg.replace('Value error, ', ''); 
             } 
             // Case 2: single error message from main.py
             else if (data.detail) {
@@ -234,17 +251,19 @@ async function handleRegister(event) {
 }
 
 async function handleVerify() {
+    // Get code from input
     const code = document.getElementById('verify-code').value;
     const errorEl = document.getElementById('auth-error');
     const successEl = document.getElementById('auth-success');
 
+    // If code is empty, show error
     if (!code) {
         errorEl.innerText = "Bitte Code eingeben.";
         errorEl.classList.remove('hidden');
         return;
     }
 
-    // Anfrage an den neuen /verify Endpunkt
+    // Request to verify endpoint
     const res = await fetch(API_BASE + '/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -255,17 +274,19 @@ async function handleVerify() {
 
     if (res.ok) {
         successEl.innerText = "Registrierung erfolgreich! Bitte einloggen.";
-        if (res.ok) {
-        // Erfolg! Zurück zum Login
-        successEl.innerText = "Erfolg! Bitte jetzt einloggen.";
         successEl.classList.remove('hidden');
-        setTimeout(() => toggleAuthMode(), 1500);
 
-        } else {
-            let msg = "Fehler beim Registrieren.";
+        // Reset View to Login after 1.5 seconds so user can read the success message
+        setTimeout(() => {
+            cancelVerification();
+            if (isRegisterMode) toggleAuthMode();
+        }, 1500);
 
-            // Case 1: validationerror i.e. Array of errors from Pydantic
-            if (Array.isArray(data.detail)) {
+    } else {
+        let msg = "Fehler beim Registrieren.";
+
+        // Case 1: validationerror i.e. Array of errors from Pydantic
+        if (Array.isArray(data.detail)) {
                 // Take first error message
                 msg = data.detail[0].msg; 
             } 
@@ -275,7 +296,7 @@ async function handleVerify() {
                 msg = data.detail;
             }
 
-            errorEl.classList.add('hidden');
+            errorEl.classList.remove('hidden');
             errorEl.innerText = "Fehler: " + msg;
         
         // Reset View to Login
@@ -283,7 +304,6 @@ async function handleVerify() {
 
         // Da wir im Register-Mode sind, schalten wir auf Login um
         if (isRegisterMode) toggleAuthMode();
-        }
     }
 }
 
@@ -512,7 +532,12 @@ async function editCurrentCategory() {
         alert("Kategorie aktualisiert!");
         await loadData(); // Reload data to see changes
     } else {
-        alert("Fehler beim Aktualisieren.");
+        try {
+            const err = await res.json();
+            alert("Fehler: " + (err.detail || "Fehler beim Aktualisieren."));
+        } catch (e) {
+            alert("Ein unbekannter Fehler ist aufgetreten.");
+        }
     }
 }
 
@@ -886,9 +911,9 @@ function renderEntryList() {
                 // If fieldDef has unit, append it, if not, leave empty
                 const unit = (fieldDef && fieldDef.unit) ? ` ${fieldDef.unit}` : '';
 
-                detailsHtml += `<span style="white-space: nowrap; margin-right:8px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem;">
+                detailsHtml += `<div style="margin-bottom:5px; padding:2px 6px; background:#e2e8f0; border-radius:8px; font-size:0.85rem; width: fit-content;">
                     <b>${key}:</b> ${val}${unit}
-                </span> `;
+                </div>`;
             }
         }
 

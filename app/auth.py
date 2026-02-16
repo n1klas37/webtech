@@ -2,7 +2,7 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
-from datetime import datetime, UTC, tzinfo
+from datetime import datetime, UTC
 
 import models
 from database import get_db

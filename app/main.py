@@ -8,10 +8,10 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import uuid
 import random
-from datetime import datetime, timedelta, UTC, timezone, tzinfo
+from datetime import datetime, timedelta, UTC
 from typing import List, Optional
 
-from app.database import engine, get_db, Base
+from database import engine, get_db, Base
 from auth import get_current_user, get_password_hash, verify_password
 import models
 import schemas
@@ -88,7 +88,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.add(cat_diary)
     db.commit()
 
-    db.add(models.CategoryField(category_id=cat_diary.id, label="Laune (1-10)", data_type="number", unit="/10"))
+    db.add(models.CategoryField(category_id=cat_diary.id, label="Laune", data_type="number", unit="/10"))
     db.add(models.CategoryField(category_id=cat_diary.id, label="Highlight", data_type="text"))
     db.commit()
 
@@ -101,7 +101,7 @@ def create_defaults_for_user(user_id: int, db: Session):
     db.commit()
 
     db.add(models.CategoryField(category_id=cat_diary.id, label="Dauer", data_type="number", unit="Stunden"))
-    db.add(models.CategoryField(category_id=cat_diary.id, label="Erholung (1-10)", data_type="number", unit="/10"))
+    db.add(models.CategoryField(category_id=cat_diary.id, label="Erholung", data_type="number", unit="/10"))
     db.commit()
 
 
@@ -115,19 +115,25 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
         (models.User.email ==user_data.email)
     ).first()
 
+    # Check if user exists
     if existing_user:
+        # If yes, and user is acive, reject registration
         if existing_user.is_active:
             raise HTTPException(400, "Benutername oder Email Adresse bereits vergeben.")
+        # If yes, but user is not active, check if registration is expired (15min)
         else:
             expiry_limit = datetime.now(UTC) - timedelta(minutes=15)
 
             created_at_utc = existing_user.created_at
+            # Ensure created_at is timezone-aware in UTC
             if created_at_utc.tzinfo is None:
                 created_at_utc = created_at_utc.replace(tzinfo=UTC)
 
+            # If registration is expired, delete old user and allow new registration
             if created_at_utc < expiry_limit:
                 db.delete(existing_user)
                 db.commit()
+            # If registration is not expired, reject registration and ask user to check email or wait
             else:
                 raise HTTPException(400, detail="Registrierung wurde gestartet. Bitte E-Mails überprüfen oder 15 Minuten warten.")
 
@@ -411,9 +417,11 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db), user: models.User
     db.commit()
     return {"status": "deleted", "id": entry_id}
 
+# --- Static files (frontend) ---
+script_dir = os.path.dirname(os.path.abspath(__file__))
+static_files_path = os.path.join(script_dir, "../static")
 
-
-app.mount("/", StaticFiles(directory="../static", html=True), name="static")
+app.mount("/", StaticFiles(directory=static_files_path, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
