@@ -2,7 +2,7 @@ import pytest
 
 def test_temp_range_validation_logic():
     """LOGIK: Prüft, ob Werte in einem Bereich liegen."""
-    def is_valid_area(a): return -50 < t < 100
+    def is_valid_area(a): return -50 < a < 100
     
     assert is_valid_area(20) is True   # Normal
     assert is_valid_area(150) is False # Zu heiß
