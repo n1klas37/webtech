@@ -5,10 +5,8 @@ from app.schemas import UserUpdate as UserCreate
 # --- SICHERHEITS- UND VALIDIERUNGSTESTS ---
 
 def test_password_validation_rules():
-    """
-    ERKLÄRUNG: Deine App hat strikte Passwort-Regeln.
-    Dieser Test prüft, ob Passwörter ohne Großbuchstaben abgelehnt werden.
-    """
+    """ERKLÄRUNG: Deine App hat strikte Passwort-Regeln.
+    Dieser Test prüft, ob Passwörter ohne Großbuchstaben abgelehnt werden."""
     with pytest.raises(ValidationError) as exc:
         # 'geheim123' hat keinen Großbuchstaben -> Fehler erwartet
         UserCreate(password="geheim123")

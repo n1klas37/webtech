@@ -5,7 +5,6 @@ client = TestClient(app)
 
 def test_api_docs_available():
     """PRÜFUNG: Ist die interaktive Dokumentation erreichbar?"""
-    # Der Simulator ruft die Swagger-UI auf
     response = client.get("/docs")
     assert response.status_code == 200
 

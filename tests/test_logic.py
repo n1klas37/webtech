@@ -1,6 +1,6 @@
 import pytest
 
-def test_temp_range_validation_logic():
+def test_area_range_validation_logic():
     """LOGIK: Prüft, ob Werte in einem Bereich liegen."""
     def is_valid_area(a): return -50 < a < 100
     
