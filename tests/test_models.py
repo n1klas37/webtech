@@ -16,8 +16,8 @@ def test_user_model_name_assignment():
 
 def test_entry_model_note_storage():
     """PRÜFUNG: Speichert das Entry-Datenmodell eine Notiz?"""
-    e = Entry(note="Labor-Messung")
-    assert e.note == "Labor-Messung"
+    e = Entry(note="Test-Notiz")
+    assert e.note == "Test-Notiz"
 
 def test_entry_model_foreign_key_logic():
     """PRÜFUNG: Kann ein Eintrag einer Kategorie-ID zugeordnet werden?"""

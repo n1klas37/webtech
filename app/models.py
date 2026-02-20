@@ -8,6 +8,7 @@ from datetime import datetime, UTC
 
 class User(Base):
     __tablename__ = "user"
+    __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
@@ -23,6 +24,7 @@ class User(Base):
 
 class Session(Base):
     __tablename__ = "session"
+    __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True)
     token = Column(String, unique=True, nullable=False)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
@@ -35,6 +37,7 @@ class Session(Base):
 
 class Category(Base):
     __tablename__ = "category"
+    __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     name = Column(String(50), nullable=False)
@@ -48,6 +51,7 @@ class Category(Base):
 
 class CategoryField(Base):
     __tablename__ = "category_field"
+    __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True)
     category_id = Column(Integer, ForeignKey("category.id"))
 
@@ -62,6 +66,7 @@ class CategoryField(Base):
 
 class Entry(Base):
     __tablename__ = "entry"
+    __table_args__ = {'extend_existing': True}
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     category_id = Column(Integer, ForeignKey("category.id"))

@@ -1,12 +1,12 @@
 import pytest
 
-def test_temp_range_validation_logic():
-    """LOGIK: Prüft, ob ein Sensor-Wert im realistischen Bereich liegt."""
-    def is_valid_temp(t): return -50 < t < 100
+def test_area_range_validation_logic():
+    """LOGIK: Prüft, ob Werte in einem Bereich liegen."""
+    def is_valid_area(a): return -50 < a < 100
     
-    assert is_valid_temp(20) is True   # Normal
-    assert is_valid_temp(150) is False # Zu heiß
-    assert is_valid_temp(-100) is False # Zu kalt
+    assert is_valid_area(20) is True   # innerhalb
+    assert is_valid_area(150) is False # außerhalb
+    assert is_valid_area(-100) is False # außerhalb
 
 def test_calculate_average_logic():
     """LOGIK: Prüft eine mathematische Durchschnittsberechnung."""
@@ -16,13 +16,13 @@ def test_calculate_average_logic():
 
 def test_string_trimming_logic():
     """LOGIK: Werden Leerzeichen am Anfang/Ende von Notizen entfernt?"""
-    note = "  Wichtiges Labor  "
-    assert note.strip() == "Wichtiges Labor"
+    note = "  Das beste Projekt  "
+    assert note.strip() == "Das beste Projekt"
 
 def test_json_structure_extraction():
     """LOGIK: Kann ein Wert aus einem verschachtelten Dictionary gelesen werden?"""
-    data = {"sensors": {"temp": {"value": 22}}}
-    assert data["sensors"]["temp"]["value"] == 22
+    data = {"name": {"temp": {"value": 22}}}
+    assert data["name"]["temp"]["value"] == 22
 
 def test_list_not_empty_logic():
     """LOGIK: Stellt sicher, dass unsere Datenlisten nicht leer sind."""
