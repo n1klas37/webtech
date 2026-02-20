@@ -1109,6 +1109,7 @@ const ctx = document.getElementById('chart-balance');
 
     if(countChart) countChart.destroy();
 
+    // Create bar chart with category names on Y-axis and counts on X-axis
     countChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1134,7 +1135,7 @@ function renderFitnessChart() {
     const exerciseSelect = document.getElementById('prog-exercise');
     const metricSelect = document.getElementById('prog-metric');
     
-    // 1. Fitness-Kategorie finden (sucht nach "fitness" oder "sport" im Namen)
+    // 1. Find fitness category (we look for keywords in the name)
     const fitCat = categories.find(c => {
         const n = c.name.toLowerCase();
         return n.includes('fitness') || n.includes('sport') || n.includes('training');
@@ -1145,8 +1146,7 @@ function renderFitnessChart() {
         return;
     }
 
-    // 2. Alle eindeutigen Übungsnamen sammeln
-    // Wir gehen davon aus, dass das Feld für den Namen "Übung" heißt (siehe dein vorheriges Feature)
+    // 2. Get unique exercise names from entries of this category to populate the exercise dropdown
     const exerciseNames = new Set();
     const relevantEntries = entries.filter(e => e.category_id === fitCat.id);
 
@@ -1156,7 +1156,7 @@ function renderFitnessChart() {
         }
     });
 
-    // 3. Übungs-Dropdown befüllen
+    // 3. Fill exercise dropdown
     exerciseSelect.innerHTML = '<option value="">-- Übung wählen --</option>';
     Array.from(exerciseNames).sort().forEach(name => {
         const opt = document.createElement('option');
@@ -1165,17 +1165,16 @@ function renderFitnessChart() {
         exerciseSelect.appendChild(opt);
     });
 
-    // 4. Metrik-Dropdown befüllen (nur Zahlenfelder aus der Kategorie-Definition)
-    // Wir schauen in die Felder-Definition der Kategorie
+    // 4. Fill metric dropdown based on fields defined in the fitness category
     metricSelect.innerHTML = '<option value="">-- Wert wählen --</option>';
     fitCat.fields.forEach(f => {
-        // Wir wollen nur Zahlen plotten (z.B. Gewicht, Dauer), keine Texte
+
         if (f.data_type === 'number') {
             const opt = document.createElement('option');
             opt.value = f.label;
             opt.innerText = f.unit ? `${f.label} (${f.unit})` : f.label;
             
-            // Standard-Auswahl: Falls es "Gewicht" gibt, wähle das vor
+            // Default selection: gewicht
             if (f.label.toLowerCase().includes('gewicht')) opt.selected = true;
             
             metricSelect.appendChild(opt);
@@ -1190,21 +1189,22 @@ function updateFitnessChart() {
 
     if (!ctx) return;
     
-    // Wenn nichts ausgewählt ist, leeres Chart oder Abbruch
+    // If either exercise or metric is not selected, destroy chart and exit
     if (!exerciseName || !metricLabel) {
         if (fitnessChart) fitnessChart.destroy();
         return;
     }
 
-    // 1. Daten filtern
-    // Wir brauchen die Fitness-Kategorie nochmal
+    // 1. Filter entries for the selected exercise and metric in the fitness category
+
+    // Find fitness category again
     const fitCat = categories.find(c => {
         const n = c.name.toLowerCase();
         return n.includes('fitness') || n.includes('sport') || n.includes('training');
     });
     if(!fitCat) return;
 
-    // Filtere alle Einträge dieser Kategorie, die die gewählte Übung und den gewählten Wert haben
+    // Filter entries that belong to the fitness category, have the selected exercise name, and contain the selected metric
     let dataPoints = entries.filter(e => 
         e.category_id === fitCat.id && 
         e.data && 
@@ -1213,18 +1213,18 @@ function updateFitnessChart() {
         e.data[metricLabel] !== ""
     );
 
-    // Sortiere nach Datum (älteste zuerst) für korrekten Linienverlauf
+    // Sort by date ascending
     dataPoints.sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at));
 
-    // 2. Daten für Chart.js aufbereiten
+    // 2. Prepare data for chart
     const labels = dataPoints.map(e => {
         const d = new Date(e.occurred_at);
         return d.toLocaleDateString(); // X-Achse: Datum
     });
     
-    const values = dataPoints.map(e => parseFloat(e.data[metricLabel])); // Y-Achse: Wert
+    const values = dataPoints.map(e => parseFloat(e.data[metricLabel])); // Y-Axis: Value of selected metric
 
-    // 3. Chart zeichnen
+    // 3. Destroy previous chart if exists and create new line chart
     if (fitnessChart) fitnessChart.destroy();
 
     fitnessChart = new Chart(ctx, {
@@ -1237,7 +1237,7 @@ function updateFitnessChart() {
                 borderColor: '#0d6efd', // Primary Blue
                 backgroundColor: 'rgba(13, 110, 253, 0.1)',
                 borderWidth: 2,
-                tension: 0.3, // Macht die Linie etwas kurvig/smooth
+                tension: 0.3,
                 pointRadius: 4,
                 pointBackgroundColor: '#ffffff',
                 pointBorderColor: '#0d6efd',
@@ -1249,7 +1249,7 @@ function updateFitnessChart() {
             maintainAspectRatio: false,
             scales: {
                 y: {
-                    beginAtZero: false, // Bei Gewicht ist 0 meist uninteressant
+                    beginAtZero: false, // Don't force zero baseline for fitness metrics
                     grid: { borderDash: [5, 5] }
                 },
                 x: {
