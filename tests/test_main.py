@@ -20,7 +20,6 @@ def test_404_on_invalid_url():
 
 def test_root_status_code():
     """PRÜFUNG: Gibt der Root-Endpunkt (falls definiert) eine Antwort?"""
-    # Falls du '/' nicht definiert hast, wird hier ein 404 erwartet, was auch ein Erfolg ist!
     response = client.get("/")
     assert response.status_code in [200, 404]
 
@@ -32,5 +31,4 @@ def test_cors_headers_present():
 def test_api_response_is_json():
     """PRÜFUNG: Sendet die API Daten im JSON-Format zurück?"""
     response = client.get("/docs")
-    # Wir prüfen, ob im Header steht, dass es sich um HTML oder JSON handelt
     assert "text/html" in response.headers["content-type"]

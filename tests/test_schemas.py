@@ -11,7 +11,6 @@ def test_entry_schema_full_valid():
 
 def test_entry_schema_missing_note():
     """POSITIV-TEST: Ist das Feld 'note' wirklich optional?"""
-    # Wir lassen 'note' weg. Das muss klappen!
     data = {"category_id": 1, "occurred_at": datetime.now(), "values": {"t": 20}}
     entry = EntryCreate(**data)
     assert entry.note is None or entry.note == ""

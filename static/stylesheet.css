@@ -1,5 +1,5 @@
 /* =========================================
-   1. Variablen & Grundsetup (Technical Look)
+   1. Variable and Root Styles
    ========================================= */
 :root {
     --bg-body: #ffffff;
@@ -10,11 +10,11 @@
     --text-muted: #6c757d;
     
     /* Funktionale Farben */
-    --col-primary: #0d6efd; /* Blau */
-    --col-success: #198754; /* Grün */
-    --col-danger: #dc3545;  /* Rot */
+    --col-primary: #0d6efd; /* Blue*/
+    --col-success: #198754; /* Green */
+    --col-danger: #dc3545;  /* Red */
     
-    /* Mapping für bestehende JS-Logik/Klassen */
+    /* Mapping for existing js classes */
     --col-fitness: var(--col-primary);
     --col-nutrition: var(--col-success);
     --col-mood: #6610f2;
@@ -36,7 +36,7 @@ body {
    2. Layout
    ========================================= */
 
-/* Hauptcontainer muss Flexbox sein für Sidebar + Inhalt */
+
 #app-screen {
     display: flex;
     height: 100vh;
@@ -71,14 +71,14 @@ aside h2:hover {
     color: var(--col-primary);
 }
 
-/* Der Container unten in der Sidebar (User & Logout) */
+/* Container at the bottom of the sidebar */
 aside > div:last-child {
-    margin-top: auto; /* Schiebt Inhalt nach unten */
+    margin-top: auto; /* Moves Content to bottom of sidebar */
     border-top: 1px solid var(--border-color);
     padding-top: 15px;
 }
 
-/* Hauptbereich */
+/* Main Screen */
 main {
     flex: 1;
     padding: 40px;
@@ -87,7 +87,7 @@ main {
 }
 
 /* =========================================
-   3. Komponenten
+   3. Common Components (Buttons, Cards, Inputs)
    ========================================= */
 
 /* Navigation */
@@ -100,7 +100,7 @@ main {
     border: 1px solid transparent;
     border-radius: 4px;
     font-size: 0.95rem;
-    width: 100%; /* Für Buttons */
+    width: 100%; /* for buttons */
     text-align: left;
     background: transparent;
 }
@@ -147,7 +147,7 @@ button {
     border-radius: 3px;
     background-color: var(--col-primary);
     color: white;
-    width: 100%; /* Standard volle Breite wie im Original */
+    width: 100%;
 }
 button:hover { opacity: 0.9; }
 
@@ -155,7 +155,7 @@ button:hover { opacity: 0.9; }
 .btn-green { background-color: var(--col-success); }
 .btn-red { background-color: var(--col-danger); }
 
-/* Kleine Buttons (z.B. Löschen/Editieren) */
+/* small buttons for editing and deleting of entries */
 .btn-small { 
     padding: 4px 8px; 
     font-size: 0.8rem; 
@@ -163,16 +163,16 @@ button:hover { opacity: 0.9; }
     display: inline-block;
 }
 
-/* Tabellen */
+/* Tables */
 table { width: 100%; border-collapse: collapse; margin-top: 10px; }
 th { text-align: left; background: #f8f9fa; border-bottom: 2px solid var(--border-color); padding: 10px; font-weight: 600; }
 td { border-bottom: 1px solid var(--border-color); padding: 10px; }
 
-/* Charts begrenzen */
+/* Limit charts */
 canvas { max-height: 300px; width: 100%; }
 
 /* =========================================
-   4. Utility Klassen (Ersetzen Inline Styles)
+   4. Utility classes
    ========================================= */
 .hidden { display: none !important; }
 
@@ -182,21 +182,21 @@ canvas { max-height: 300px; width: 100%; }
 .mb-20 { margin-bottom: 20px; }
 .mt-15 { margin-top: 15px; }
 
-/* Header im Generic View (Titel links, Buttons rechts) */
+/* Header in generic view */
 .flex-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
 }
 
-/* Flex Container für Titel & Icons */
+/* Flex Container */
 .title-group {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-/* Login Spezifisch */
+/* Login */
 #login-screen {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: #e9ecef;
@@ -208,13 +208,13 @@ canvas { max-height: 300px; width: 100%; }
     box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
-/* Status Nachrichten */
+/* Status Messages */
 #auth-error { color: var(--col-danger); text-align: center; margin-bottom: 10px; font-size: 0.9rem;}
 #auth-success { color: var(--col-success); text-align: center; margin-bottom: 10px; font-size: 0.9rem;}
 
-/* Sidebar Spezifisch */
+/* username for sidebar */
 #display-username { text-align: center; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px; }
 
-/* Logout Button Spezifisch */
+/* Logout Button */
 #btn-logout { background-color: rgba(220, 53, 69, 0.1); color: var(--col-danger); }
 #btn-logout:hover { background-color: var(--col-danger); color: white; }
