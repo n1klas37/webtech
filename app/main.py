@@ -1,3 +1,8 @@
+"""
+Main application module.
+Initializes the FastAPI application, configures middleware, and defines all REST API endpoints.
+Acts as the central controller for authentication, user management, categories, and tracking entries.
+"""
 import string
 import os
 from dotenv import load_dotenv
@@ -10,20 +15,24 @@ import uuid
 import random
 from datetime import datetime, timedelta, UTC
 from typing import List, Optional
+from app.database import engine, get_db, Base
+from app.auth import get_current_user, get_password_hash, verify_password
+import app.models as models
+import app.schemas as schemas
 
-from database import engine, get_db, Base
-from auth import get_current_user, get_password_hash, verify_password
-import models
-import schemas
 
+# Load environment variables from the .env file
 load_dotenv()
 
-# DB Init
+# Database Initialization: Programmatically generate all tables defined in models.py
 Base.metadata.create_all(bind=engine)
 
+# App binding
 app = FastAPI(title="Lifetracker API", version="1.0.0")
 
-# Config
+# --- Mail Configuration ---
+
+# Configuration for the fastapi-mail module to handle asynchronous double opt-in emails
 conf = ConnectionConfig(
     MAIL_USERNAME = os.getenv("MAIL_USERNAME"),
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD"),
@@ -36,10 +45,13 @@ conf = ConnectionConfig(
     VALIDATE_CERTS = False
 )
 
+# Feature toggle for local development vs. production environment
 EMAIL_VERIFICATION_ENABLED = os.getenv("EMAIL_VERIFICATION_ENABLED", "True") == "True"
 
 
+# --- Middleware ---
 
+# Configure Cross-Origin Resource Sharing (CORS) to allow requests from the frontend SPA
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -52,79 +64,101 @@ app.add_middleware(
 # --- Helper ---
 
 def create_defaults_for_user(user_id: int, db: Session):
-    # 1. Fitness
-    cat_fit = models.Category(user_id=user_id,
-                              name="🚴 Fitness",
-                              description="Hier kannst du dein Training tracken.",
-                              is_system_default=True)
-
+    """
+    Populates the database with default tracking categories and associated fields for a new user.
+    Ensures an immediate onboarding experience without requiring manual setup by the user.
+    System defaults cannot be deleted by the user to ensure basic analytical integrity.
+    """
+    # Fitness
+    cat_fit = models.Category(
+        user_id=user_id,
+        name="🚴 Fitness",
+        description="Hier kannst du dein Training tracken.",
+        is_system_default=True
+    )
     db.add(cat_fit)
     db.commit()
 
+    # Define and add standard metrics for Fitness
     db.add(models.CategoryField(category_id=cat_fit.id, label="Übung", data_type="text"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Dauer", data_type="number", unit="Minuten"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Strecke", data_type="number", unit="km"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Gewicht", data_type="number", unit="kg"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
 
-    # 2. Ernährung
-    cat_fit = models.Category(user_id=user_id,
-                              name="🍎 Ernährung",
-                              description="Hier kannst du deine Ernährung tracken.",
-                              is_system_default=True)
+    # Nutrition
+    cat_fit = models.Category(
+        user_id=user_id,
+        name="🍎 Ernährung",
+        description="Hier kannst du deine Ernährung tracken.",
+        is_system_default=True
+    )
     db.add(cat_fit)
     db.commit()
 
+    # Define and add nutrition fields
     db.add(models.CategoryField(category_id=cat_fit.id, label="Lebensmittel", data_type="text"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Gewicht", data_type="number", unit="g"))
     db.add(models.CategoryField(category_id=cat_fit.id, label="Energie", data_type="number", unit="kcal"))
     db.commit()
 
-    # 3. Laune
-    cat_diary = models.Category(user_id=user_id,
-                                name="📖 Tagebuch",
-                                description="Hier kannst du deine Stimmung tracken.",
-                                is_system_default=True)
+    # Diary / Mood
+    cat_diary = models.Category(
+        user_id=user_id,
+        name="📖 Tagebuch",
+        description="Hier kannst du deine Stimmung tracken.",
+        is_system_default=True
+    )
     db.add(cat_diary)
     db.commit()
 
+    # Define and add diary fields
     db.add(models.CategoryField(category_id=cat_diary.id, label="Laune", data_type="number", unit="/10"))
     db.add(models.CategoryField(category_id=cat_diary.id, label="Highlight", data_type="text"))
     db.commit()
 
-    # 4. Schlaf
-    cat_diary = models.Category(user_id=user_id,
-                                name="💤 Schlaf",
-                                description="Hier kannst du deinen Schlaf tracken.",
-                                is_system_default=True)
+    # Sleep
+    cat_diary = models.Category(
+        user_id=user_id,
+        name="💤 Schlaf",
+        description="Hier kannst du deinen Schlaf tracken.",
+        is_system_default=True
+    )
     db.add(cat_diary)
     db.commit()
 
+    # Define and add sleep fields
     db.add(models.CategoryField(category_id=cat_diary.id, label="Dauer", data_type="number", unit="Stunden"))
     db.add(models.CategoryField(category_id=cat_diary.id, label="Erholung", data_type="number", unit="/10"))
     db.commit()
-
 
 
 # --- Authentication routes (public) ---
 
 @app.post("/register", response_model=schemas.LoginSuccess)
 async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db)):
+    """
+    Handles user registration.
+    Implements security measures against duplicate accounts and handles stale, unverified registrations.
+    """
     existing_user = db.query(models.User).filter(
         (models.User.name == user_data.name) |
         (models.User.email ==user_data.email)
     ).first()
 
-    # Check if user exists
+    # Collision handling
     if existing_user:
+
         # If yes, and user is acive, reject registration
         if existing_user.is_active:
             raise HTTPException(400, "Benutername oder Email Adresse bereits vergeben.")
+
         # If yes, but user is not active, check if registration is expired (15min)
         else:
+            # Cleanup logic: Allow overwriting an unverified registration after a 15-minute timeout
             expiry_limit = datetime.now(UTC) - timedelta(minutes=15)
-
             created_at_utc = existing_user.created_at
+
             # Ensure created_at is timezone-aware in UTC
             if created_at_utc.tzinfo is None:
                 created_at_utc = created_at_utc.replace(tzinfo=UTC)
@@ -133,36 +167,38 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
             if created_at_utc < expiry_limit:
                 db.delete(existing_user)
                 db.commit()
+
             # If registration is not expired, reject registration and ask user to check email or wait
             else:
                 raise HTTPException(400, detail="Registrierung wurde gestartet. Bitte E-Mails überprüfen oder 15 Minuten warten.")
-
 
     # Email verification
     is_active_status = True
     verification_code = None
 
+    # Double opt-in logic
     if EMAIL_VERIFICATION_ENABLED:
         is_active_status = False
         verification_code = ''.join(random.choices(string.digits, k=6))
 
-    html_content = f"""
-            <h1>Willkommen beim Lifetracker!</h1>
-            <p>Dein Verifizierungscode lautet:</p>
-            <h2 style="background: #eee; padding: 10px; display: inline-block;">{verification_code}</h2>
-            <p>Bitte gib diesen Code in der App ein.</p>
-            """
+        html_content = f"""
+                <h1>Willkommen beim Lifetracker!</h1>
+                <p>Dein Verifizierungscode lautet:</p>
+                <h2 style="background: #eee; padding: 10px; display: inline-block;">{verification_code}</h2>
+                <p>Bitte gib diesen Code in der App ein.</p>
+                """
 
-    message = MessageSchema(
-        subject="Dein Lifetracker Code",
-        recipients=[user_data.email],
-        body=html_content,
-        subtype=MessageType.html
-    )
+        message = MessageSchema(
+            subject="Dein Lifetracker Code",
+            recipients=[user_data.email],
+            body=html_content,
+            subtype=MessageType.html
+        )
 
-    fm = FastMail(conf)
-    await fm.send_message(message)
+        fm = FastMail(conf)
+        await fm.send_message(message)
 
+    # Persist new user
     new_user = models.User(
         name=user_data.name,
         email=user_data.email,
@@ -175,8 +211,10 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
     db.commit()
     db.refresh(new_user)
 
+    # Trigger default category generation
     create_defaults_for_user(new_user.id, db)
 
+    # Return immediately if verification is required
     if EMAIL_VERIFICATION_ENABLED:
         return {
             "success": True,
@@ -185,6 +223,7 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
             "name": new_user.name
         }
 
+    # Direct login if verification is disabled
     token = str(uuid.uuid4())
     expires = datetime.now(UTC) + timedelta(days=30)
     db.add(models.Session(token=token, user_id=new_user.id, expires_at=expires))
@@ -195,7 +234,7 @@ async def register(user_data: schemas.UserRegister, db: Session = Depends(get_db
 
 @app.post("/verify")
 def verify_email(data: schemas.UserVerify, db: Session = Depends(get_db)):
-    """Prüft den Code und schaltet den Benutzer frei."""
+    """Validates the 6-digit code sent via email and activates the user account."""
     user = db.query(models.User).filter(models.User.email == data.email).first()
 
     if not user:
@@ -207,6 +246,7 @@ def verify_email(data: schemas.UserVerify, db: Session = Depends(get_db)):
     if user.verification_code != data.code:
         raise HTTPException(400, "Falscher Verifizierungscode")
 
+    # Activate user and invalidate the verification code
     user.is_active = True
     user.verification_code = None
     db.commit()
@@ -216,6 +256,7 @@ def verify_email(data: schemas.UserVerify, db: Session = Depends(get_db)):
 
 @app.post("/login", response_model=schemas.LoginSuccess)
 def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
+    """Authenticates the user and issues a Bearer token for protected routes."""
     user = db.query(models.User).filter(models.User.name == user_data.name).first()
 
     if not user or not verify_password(user_data.password, user.password_hash):
@@ -224,6 +265,7 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(401, "Account ist noch nicht aktiviert. Bitte E-Mail Verifizierung durchführen.")
 
+    # Generate session token (Time to Live: 30 days)
     token = str(uuid.uuid4())
     expires = datetime.now(UTC) + timedelta(days=30)
     db.add(models.Session(token=token, user_id=user.id, expires_at=expires))
@@ -235,19 +277,22 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @app.get("/user", response_model=schemas.UserOut)
 def get_user_profile(user: models.User = Depends(get_current_user)):
+    """Returns the authenticated user's profile data."""
     return user
 
 
 @app.put("/user", response_model=schemas.UserOut)
-def update_user_profile(user_data: schemas.UserUpdate, db: Session = Depends(get_db),
-                        current_user: models.User = Depends(get_current_user)):
-    # 1. Frisch aus dieser Session laden
+def update_user_profile(
+        user_data: schemas.UserUpdate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    """Allows partial updates to the user profile while preventing constraint violations."""
     user_in_db = db.query(models.User).filter(models.User.id == current_user.id).first()
 
     if not user_in_db:
         raise HTTPException(404, "Benutzer nicht gefunden!")
 
-    # 2. Prüfungen (Name doppelt?)
     if user_data.name:
         existing = db.query(models.User).filter(models.User.name == user_data.name).first()
         if existing and existing.id != user_in_db.id:
@@ -270,6 +315,10 @@ def update_user_profile(user_data: schemas.UserUpdate, db: Session = Depends(get
 
 @app.delete("/user")
 def delete_user_account(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Deletes the user account.
+    Triggers cascading deletes in the database for all associated categories, fields, and entries.
+    """
     user_to_delete = db.query(models.User).filter(models.User.id == current_user.id).first()
 
     if user_to_delete:
@@ -283,20 +332,28 @@ def delete_user_account(db: Session = Depends(get_db), current_user: models.User
 
 @app.get("/categories/", response_model=List[schemas.CategoryOut])
 def get_categories(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Retrieves all tracking categories belonging to the authenticated user."""
     return db.query(models.Category).filter(models.Category.user_id == user.id).order_by(models.Category.id).all()
 
 
 @app.post("/categories/", response_model=schemas.CategoryOut)
-def create_category(cat: schemas.CategoryCreate, db: Session = Depends(get_db),
-                    user: models.User = Depends(get_current_user)):
+def create_category(
+        cat: schemas.CategoryCreate,
+        db: Session = Depends(get_db),
+        user: models.User = Depends(get_current_user)
+):
+    """Creates a new tracking category and its associated dynamically defined fields."""
     db_cat = models.Category(name=cat.name, description=cat.description, user_id=user.id)
     db.add(db_cat)
     db.commit()
     db.refresh(db_cat)
+
+    # Process and append nested field definitions
     for f in cat.fields:
         db.add(models.CategoryField(category_id=db_cat.id, label=f.label, data_type=f.data_type, unit=f.unit))
     db.commit()
     db.refresh(db_cat)
+
     return db_cat
 
 
@@ -305,13 +362,16 @@ def update_category(
         category_id: int,
         cat_update: schemas.CategoryUpdate,
         db: Session = Depends(get_db),
-        user: models.User = Depends(get_current_user)):
+        user: models.User = Depends(get_current_user)
+):
+    """Updates category metadata. Blocks modifications to system categories."""
 
     cat = db.query(models.Category).filter(models.Category.id == category_id,
                                            models.Category.user_id == user.id).first()
 
     if not cat: raise HTTPException(404, "Category not found")
 
+    # Protection layer for system defaults
     if cat.is_system_default:
         raise HTTPException(status_code=400,
                             detail="Standard-Kategorien können nicht bearbeitet werden, da sie für die Auswertung benötigt werden.")
@@ -330,16 +390,18 @@ def update_category(
 
 @app.delete("/categories/{category_id}")
 def delete_category(category_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Deletes a category. Blocks deletion of core system categories."""
     cat = db.query(models.Category).filter(models.Category.id == category_id,
                                            models.Category.user_id == user.id).first()
 
     if not cat: raise HTTPException(404, "Not found")
 
+    # Protection layer for system defaults
     if cat.is_system_default:
         raise HTTPException(status_code=400,
                             detail="Standard-Kategorien können nicht gelöscht werden, da sie für die Auswertung benötigt werden.")
 
-    db.delete(cat)  # Cascading delete löscht Felder & Einträge
+    db.delete(cat) # Cascading delete automatically removes fields and tracking entries
     db.commit()
 
     return {"status": "deleted", "id": category_id}
@@ -355,8 +417,13 @@ def get_entries(
         db: Session = Depends(get_db),
         user: models.User = Depends(get_current_user)
 ):
+    """
+    Retrieves tracking entries.
+    Supports optional query parameters for targeted data aggregation in the frontend.
+    """
     query = db.query(models.Entry).filter(models.Entry.user_id == user.id)
 
+    # Dynamic query building based on provided parameters
     if category_id: query = query.filter(models.Entry.category_id == category_id)
     if start: query = query.filter(models.Entry.occurred_at >= start)
     if end: query = query.filter(models.Entry.occurred_at <= end)
@@ -365,8 +432,15 @@ def get_entries(
 
 
 @app.post("/entries/", response_model=schemas.EntryOut)
-def create_entry(item: schemas.EntryCreate, db: Session = Depends(get_db),
-                 user: models.User = Depends(get_current_user)):
+def create_entry(
+        item: schemas.EntryCreate,
+        db: Session = Depends(get_db),
+        user: models.User = Depends(get_current_user)
+):
+    """
+    Creates a new tracking entry.
+    Accepts highly flexible payloads due to the schemaless JSON 'data' column mapping.
+    """
     if not db.query(models.Category).filter(models.Category.id == item.category_id,
                                             models.Category.user_id == user.id).first():
         raise HTTPException(404, "Category not found")
@@ -376,7 +450,7 @@ def create_entry(item: schemas.EntryCreate, db: Session = Depends(get_db),
         user_id=user.id,
         occurred_at=item.occurred_at,
         note=item.note,
-        data=item.values
+        data=item.values # Inserts the dynamic dictionary into the JSON column
     )
     db.add(new_entry)
     db.commit()
@@ -391,9 +465,12 @@ def update_entry(
         db: Session = Depends(get_db),
         user: models.User = Depends(get_current_user)
 ):
+    """Updates an existing tracking entry."""
     entry = db.query(models.Entry).filter(models.Entry.id == entry_id, models.Entry.user_id == user.id).first()
+
     if not entry: raise HTTPException(404, "Entry not found")
 
+    # Verify category ownership if category ID is being changed
     if item.category_id != entry.category_id:
         if not db.query(models.Category).filter(models.Category.id == item.category_id,
                                                 models.Category.user_id == user.id).first():
@@ -406,18 +483,26 @@ def update_entry(
 
     db.commit()
     db.refresh(entry)
+
     return entry
 
 
 @app.delete("/entries/{entry_id}")
 def delete_entry(entry_id: int, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    """Deletes a specific tracking entry."""
     entry = db.query(models.Entry).filter(models.Entry.id == entry_id, models.Entry.user_id == user.id).first()
+
     if not entry: raise HTTPException(404, "Not found")
+
     db.delete(entry)
     db.commit()
+
     return {"status": "deleted", "id": entry_id}
 
-# --- Static files (frontend) ---
+
+# --- Static files (frontend routing) ---
+
+# Mounts the static directory to serve the frontend Single Page Application
 script_dir = os.path.dirname(os.path.abspath(__file__))
 static_files_path = os.path.join(script_dir, "../static")
 

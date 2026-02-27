@@ -3,30 +3,34 @@ from datetime import datetime, timedelta
 from app.database import SessionLocal
 from app import models
 
-# --- KONFIGURATION ---
-TARGET_USERNAME = "testuser"  # <--- Hier deinen Usernamen eintragen
-DAYS_TO_FILL = 300000             # Für wie viele Tage rückwirkend Daten erzeugen?
-ENTRIES_PER_DAY = 20           # Ungefähre Anzahl Einträge pro Kategorie/Tag
+# --- CONFIGURATION ---
+TARGET_USERNAME = "Testuser"
+START_DATE = datetime(2025, 1, 1)
+END_DATE = datetime(2026, 3, 31)
+SKIP_PROBABILITY = 0.3  # 30% chance to skip tracking for non-essential categories
 
 db = SessionLocal()
 
+
 def get_user(username):
+    """Retrieves the user object from the database."""
     return db.query(models.User).filter(models.User.name == username).first()
 
-def create_timestamp(day_offset):
-    """Erzeugt eine zufällige Zeit an einem bestimmten Tag in der Vergangenheit"""
-    base_date = datetime.now() - timedelta(days=day_offset)
-    # Zufällige Uhrzeit zwischen 07:00 und 23:00
+
+def create_timestamp(target_date):
+    """Generates a random time for a specific date within the defined range."""
+    # Random time between 07:00 and 23:00
     hour = random.randint(7, 23)
     minute = random.randint(0, 59)
-    return base_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    return target_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
-# --- LOGIK-GENERATOREN ---
+
+# --- LOGIC GENERATORS ---
 
 def generate_fitness_data(available_labels):
     """
-    Erzeugt in sich schlüssige Sport-Daten.
-    Z.B.: Joggen hat Strecke, Bankdrücken hat Gewicht.
+    Generates coherent fitness data.
+    E.g.: Jogging includes distance, bench press includes weight.
     """
     activities = [
         {"name": "Joggen", "type": "cardio", "kcal_per_min": 10, "speed_kmh": 10},
@@ -35,55 +39,56 @@ def generate_fitness_data(available_labels):
         {"name": "Kniebeugen", "type": "kraft", "kcal_per_min": 6},
         {"name": "Yoga", "type": "flex", "kcal_per_min": 3},
     ]
-    
+
     act = random.choice(activities)
-    duration = random.choice([20, 30, 45, 60, 90]) # Minuten
-    
-    # Basis-Daten berechnen
+    duration = random.choice([20, 30, 45, 60, 90])  # Minutes
+
+    # Calculate base data
     data = {}
-    
-    # 1. Übung
+
+    # Exercise
     data["Übung"] = act["name"]
-    
-    # 2. Dauer
+
+    # Duration
     data["Dauer"] = duration
-    
-    # 3. Energie (Berechnung: Dauer * Faktor)
+
+    # Energy (Calculation: duration * factor)
     kcal = duration * act["kcal_per_min"]
-    # Bisschen Varianz reinbringen (+/- 10%)
+    # Add some variance (+/- 10%)
     kcal = int(kcal * random.uniform(0.9, 1.1))
     data["Energie"] = kcal
-    
-    # 4. Strecke (Nur für Cardio logisch)
+
+    # Distance (Logical only for cardio)
     if act["type"] == "cardio":
-        # Strecke = Zeit(h) * km/h
+        # Distance = Time(h) * km/h
         dist = (duration / 60) * act["speed_kmh"]
         data["Strecke"] = round(dist, 2)
     else:
-        data["Strecke"] = 0 # oder None, je nach Wunsch
-        
-    # 5. Gewicht (Nur für Kraft logisch)
+        data["Strecke"] = 0  # or None, depending on preference
+
+    # Weight (Logical only for strength training)
     if act["type"] == "kraft":
         data["Gewicht"] = random.choice([40, 50, 60, 80, 100])
     else:
         data["Gewicht"] = 0
 
-    # Jetzt mappen wir die berechneten Daten auf die TATSÄCHLICHEN Felder der Kategorie
+    # Map the calculated data to the ACTUAL fields of the category
     result_values = {}
     for label in available_labels:
-        # Wir suchen das passendste Stück Daten für das Label
+        # Find the most appropriate piece of data for the label
         for key, val in data.items():
             if key.lower() in label.lower():
                 result_values[label] = val
                 break
-        # Fallback für nicht erkannte Felder
+        # Fallback for unrecognized fields
         if label not in result_values:
             result_values[label] = "-"
-            
+
     return result_values
 
+
 def generate_nutrition_data(available_labels):
-    """Erzeugt schlüssige Ernährungsdaten (Kalorien passen zur Menge)."""
+    """Generates coherent nutrition data (calories match the amount)."""
     foods = [
         {"name": "Apfel", "kcal_100g": 52},
         {"name": "Banane", "kcal_100g": 89},
@@ -93,12 +98,12 @@ def generate_nutrition_data(available_labels):
         {"name": "Salat", "kcal_100g": 15},
         {"name": "Schokolade", "kcal_100g": 546},
     ]
-    
+
     food = random.choice(foods)
-    amount = random.choice([100, 150, 200, 300, 500]) # Gramm
-    
+    amount = random.choice([100, 150, 200, 300, 500])  # Grams
+
     total_kcal = int((amount / 100) * food["kcal_100g"])
-    
+
     result_values = {}
     for label in available_labels:
         l = label.lower()
@@ -110,32 +115,36 @@ def generate_nutrition_data(available_labels):
             result_values[label] = total_kcal
         else:
             result_values[label] = ""
-            
+
     return result_values
 
+
 def generate_sleep_data(available_labels):
-    """Erzeugt Schlafdaten (Erholung korreliert leicht mit Dauer)."""
-    duration = random.randint(5, 10) # Stunden
-    
-    # Logik: Wer länger schläft, ist meist erholter (einfache Logik)
+    """Generates sleep data (recovery slightly correlates with duration)."""
+    duration = random.randint(5, 10)  # Hours
+
+    # Logic: Longer sleep usually implies better recovery
     recovery = duration + random.randint(-2, 1)
-    # Clamp value 1-10
+    # Clamp value between 1 and 10
     recovery = max(1, min(10, recovery))
-    
+
     result_values = {}
     for label in available_labels:
         l = label.lower()
         if "dauer" in l:
             result_values[label] = duration
-        elif "erholung" in l or "qual" in l: # Qualität
+        elif "erholung" in l or "qual" in l:  # Quality
             result_values[label] = recovery
         else:
             result_values[label] = 0
     return result_values
 
+
 def generate_diary_data(available_labels):
-    highlights = ["Sport gemacht", "Projekt beendet", "Gut gegessen", "Freunde getroffen", "Film geschaut", "Code geschrieben"]
-    
+    """Generates diary data with randomized moods and highlights."""
+    highlights = ["Sport gemacht", "Projekt beendet", "Gut gegessen", "Freunde getroffen", "Film geschaut",
+                  "Code geschrieben"]
+
     result_values = {}
     for label in available_labels:
         l = label.lower()
@@ -148,47 +157,56 @@ def generate_diary_data(available_labels):
     return result_values
 
 
-# --- HAUPTPROGRAMM ---
+# --- MAIN PROGRAM ---
 
 def run():
-    print(f"--- Starte Smart Data Generator für User: {TARGET_USERNAME} ---")
-    
+    print(f"--- Starting Smart Data Generator for User: {TARGET_USERNAME} ---")
+
     user = get_user(TARGET_USERNAME)
     if not user:
-        print(f"❌ User '{TARGET_USERNAME}' nicht gefunden. Bitte erst registrieren/einloggen.")
+        print(f"User '{TARGET_USERNAME}' not found. Please register/login first.")
         return
 
     categories = db.query(models.Category).filter(models.Category.user_id == user.id).all()
     if not categories:
-        print("❌ Keine Kategorien gefunden.")
+        print("No categories found.")
         return
 
     total_entries = 0
 
-    # Über alle Kategorien iterieren
+    # Calculate the total number of days between start and end date
+    delta = END_DATE - START_DATE
+
+    # Iterate over all categories
     for cat in categories:
         cat_name_lower = cat.name.lower()
         field_labels = [f.label for f in cat.fields]
-        
-        print(f"Verarbeite Kategorie: {cat.name}...")
-        
-        # Für jeden Tag in der Vergangenheit
-        for day in range(DAYS_TO_FILL):
-            
-            # Manchmal aussetzen (damit es realistischer wirkt)
-            if random.random() < 0.3: 
-                continue
 
-            # Entscheiden, wie viele Einträge heute für diese Kategorie
+        print(f"Processing category: {cat.name}...")
+
+        # Determine if the current category MUST be tracked every day
+        is_essential = "ernährung" in cat_name_lower or "essen" in cat_name_lower or "schlaf" in cat_name_lower
+
+        # Iterate through the specific date range
+        for day_offset in range(delta.days + 1):
+            current_date = START_DATE + timedelta(days=day_offset)
+
+            # Apply random skip logic for non-essential categories
+            if not is_essential:
+                if random.random() < SKIP_PROBABILITY:
+                    continue
+
+            # Decide how many entries to create for this category today
             count = 1
-            if "ernährung" in cat_name_lower: count = random.randint(1, 4) # Man isst öfter
-            
+            if "ernährung" in cat_name_lower:
+                count = random.randint(1, 4)  # People eat multiple times a day
+
             for _ in range(count):
-                ts = create_timestamp(day)
+                ts = create_timestamp(current_date)
                 values = {}
                 note = ""
 
-                # --- Strategie wählen basierend auf Name ---
+                # --- Choose strategy based on category name ---
                 if "fitness" in cat_name_lower or "sport" in cat_name_lower:
                     values = generate_fitness_data(field_labels)
                     note = "Training"
@@ -196,17 +214,17 @@ def run():
                     values = generate_nutrition_data(field_labels)
                 elif "schlaf" in cat_name_lower:
                     values = generate_sleep_data(field_labels)
-                    # Schlaf ist meist nur 1x pro Tag
-                    if _ > 0: continue 
+                    # Sleep usually occurs only once per day
+                    if _ > 0: continue
                 elif "tagebuch" in cat_name_lower:
                     values = generate_diary_data(field_labels)
                     if _ > 0: continue
                 else:
-                    # Fallback für unbekannte Kategorien (einfache Zufallswerte)
+                    # Fallback for unknown categories (simple random values)
                     for l in field_labels:
-                        values[l] = "Test-" + str(random.randint(1,100))
-                
-                # Speichern
+                        values[l] = "Test-" + str(random.randint(1, 100))
+
+                # Save the entry
                 entry = models.Entry(
                     user_id=user.id,
                     category_id=cat.id,
@@ -216,10 +234,11 @@ def run():
                 )
                 db.add(entry)
                 total_entries += 1
-                
+
     db.commit()
-    print(f"✅ Fertig! {total_entries} logische Einträge wurden erstellt.")
+    print(f"Done! {total_entries} entries were created.")
     db.close()
+
 
 if __name__ == "__main__":
     run()
